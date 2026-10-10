@@ -67,12 +67,11 @@ npm ci && npm run build && npm start
 and `dist/.next/static/` into `dist/.next/standalone/` — `next build` does not do that itself, and
 without it the standalone server answers HTML while every stylesheet, script and image 404s.
 
-To run the standalone bundle instead of `next start`:
+`npm start` launches that standalone server; `next start` is not supported with this repository's
+`output: "standalone"` build. To set production credentials and bind to all interfaces:
 
 ```bash
-npm run build
-ADMIN_EMAIL=… ADMIN_PASSWORD=… AUTH_SECRET=… PORT=3000 HOSTNAME=0.0.0.0 \
-  node dist/.next/standalone/server.js      # it chdirs into dist/.next/standalone itself
+ADMIN_EMAIL=… ADMIN_PASSWORD=… AUTH_SECRET=… PORT=3000 HOSTNAME=0.0.0.0 npm start
 ```
 
 If you ever build and then move things by hand, re-run `node scripts/sync-standalone.mjs` before
@@ -87,6 +86,13 @@ would overwrite live uploads, orders, licences and reservations with the committ
 `scripts/preserve-data.mjs` fixes that: `prebuild` snapshots the running store to
 `.runtime-data/`, `postbuild` restores it verbatim. To re-seed the running store from `data/` on
 purpose, build with `ROZVELT_DATA_FROM_REPO=1`.
+
+**A GitHub clone or ZIP is source code, not a backup of admin-edited site content.** Runtime JSON
+(`data/*.json`), uploads, users, orders and private marketplace assets are intentionally excluded
+from Git. A fresh clone uses the built-in `seedContent`; existing admin edits appear only after you
+restore the original `data/content.json` backup or connect the same persistent Redis/Blob store.
+For production, keep that store persistent and verify it at `/api/health` before editing content.
+Do not commit private runtime records or marketplace masters to the repository.
 
 ## Structure
 

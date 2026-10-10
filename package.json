@@ -10,7 +10,7 @@
     "prebuild": "node scripts/preserve-data.mjs --snapshot",
     "build": "next build",
     "postbuild": "node scripts/sync-standalone.mjs && node scripts/preserve-data.mjs --restore",
-    "start": "next start",
+    "start": "node dist/.next/standalone/server.js",
     "lint": "eslint",
     "typecheck": "tsc --noEmit",
     "push:keys": "web-push generate-vapid-keys --json",

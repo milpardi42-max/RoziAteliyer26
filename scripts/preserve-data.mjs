@@ -13,9 +13,9 @@
  *   prebuild  → .runtime-data/   (copy of dist/.next/standalone/data)
  *   postbuild → dist/.next/standalone/data   (restored verbatim)
  *
- * A fresh clone has no snapshot yet, so the first build still gets seeded from the repository
- * copy. To deliberately re-seed the running store from `data/`, run the build with
- * `ROZVELT_DATA_FROM_REPO=1`.
+ * A fresh clone has no runtime snapshot; it may or may not include a committed `data/` copy.
+ * When no content file exists, the app falls back to its built-in `seedContent`. To deliberately
+ * re-seed the running store from a repository `data/` copy, build with `ROZVELT_DATA_FROM_REPO=1`.
  *
  * Restoring also *creates* the folder when the build produced none: repositories that keep
  * `data/` out of git would otherwise lose the whole store on every deploy.
@@ -64,7 +64,9 @@ if (mode === "--restore") {
     process.exit(0);
   }
   if (!existsSync(snapshot) || !countFiles(snapshot)) {
-    console.log("ℹ no runtime data snapshot yet — the build seeded the store from data/.");
+    console.log(
+      "ℹ no runtime data snapshot — keeping bundled data; without data/content.json the app uses seedContent.",
+    );
     process.exit(0);
   }
   const live = countFiles(snapshot);
