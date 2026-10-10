@@ -4,6 +4,20 @@ import { useState, useEffect } from "react";
 import { Frame, Lock, Mail, Eye, EyeOff, AlertCircle } from "lucide-react";
 import { useAuth } from "@/components/providers/AppProviders";
 
+function adminReturnPath(locale: string): string {
+  const fallback = `/admin/${locale}`;
+  try {
+    const raw = new URLSearchParams(window.location.search).get("next");
+    if (!raw) return fallback;
+    const target = new URL(raw, window.location.origin);
+    const inAdmin = target.pathname === fallback || target.pathname.startsWith(`${fallback}/`);
+    if (target.origin !== window.location.origin || !inAdmin) return fallback;
+    return `${target.pathname}${target.search}${target.hash}`;
+  } catch {
+    return fallback;
+  }
+}
+
 export default function AdminLoginPage({ params }: { params: Promise<{ locale: string }> }) {
   const { user, ready, login } = useAuth();
 
@@ -23,7 +37,7 @@ export default function AdminLoginPage({ params }: { params: Promise<{ locale: s
     if (ready && user?.role === "admin") {
       // A full same-origin navigation makes the browser send the freshly set
       // HttpOnly session cookie through preview proxies before middleware runs.
-      window.location.replace(`/admin/${locale}`);
+      window.location.replace(adminReturnPath(locale));
     }
   }, [ready, user, locale]);
 
@@ -47,7 +61,7 @@ export default function AdminLoginPage({ params }: { params: Promise<{ locale: s
       setError("این حساب کاربری دسترسی ورود به پنل مدیریت را ندارد.");
       return;
     }
-    window.location.replace(`/admin/${locale}`);
+    window.location.replace(adminReturnPath(locale));
   };
 
   return (

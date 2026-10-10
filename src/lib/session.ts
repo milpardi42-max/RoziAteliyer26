@@ -17,7 +17,17 @@ export interface SessionUser {
 const enc = new TextEncoder();
 
 function secret(): string {
-  return process.env.AUTH_SECRET || process.env.ADMIN_PASSWORD || "rosie-atelier-dev-secret";
+  const configured = process.env.AUTH_SECRET;
+  if (configured && configured.length >= 32) return configured;
+  if (process.env.ADMIN_PASSWORD && process.env.NODE_ENV !== "production") {
+    return process.env.ADMIN_PASSWORD;
+  }
+  if (process.env.NODE_ENV === "production") {
+    throw new Error(
+      "AUTH_SECRET must be set in production to a random string >= 32 characters (e.g. openssl rand -hex 32)."
+    );
+  }
+  return "rosie-atelier-dev-secret-do-not-use-in-production";
 }
 
 function b64url(bytes: ArrayBuffer | Uint8Array): string {

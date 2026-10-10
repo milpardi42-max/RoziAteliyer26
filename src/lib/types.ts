@@ -366,10 +366,32 @@ export interface LiveEventConfig {
   recordingDownloadable?: boolean;
   /** Whether the recording is publicly available (not just for registrants) */
   recordingPublic?: boolean;
-  /** Instructor / host name override (if different from author) */
+  /** @deprecated Use instructorName / hostName. Kept for backward compatibility. */
   hostName?: Localized;
-  /** Whether the custom instructor / host name is enabled */
+  /** @deprecated Use instructorNameCustom / hostNameCustom. */
   hostNameCustom?: boolean;
+
+  /** ── مدرس (instructor) — هم انتخاب از لیست، هم ورود دستی + عکس ── */
+  /** Whether to use a custom instructor entry instead of selecting from existing artists */
+  instructorNameCustom?: boolean;
+  /** Selected instructor artist id (when instructorNameCustom is false) */
+  instructorId?: ID;
+  /** Custom instructor name (when instructorNameCustom is true). Farsi-only string. */
+  instructorName?: string;
+  /** Instructor photo URL (optional — uploaded via image picker) */
+  instructorPhoto?: string;
+
+  /** ── میزبان (host) — هم انتخاب از لیست، هم ورود دستی + عکس ── */
+  hostCustom?: boolean;
+  /** Selected host artist id (when hostCustom is false) */
+  hostId?: ID;
+  /** Custom host name (when hostCustom is true). Farsi-only string. */
+  hostNameFa?: string;
+  /** Host photo URL (optional) */
+  hostPhoto?: string;
+
+  /** Whether registration/enrollment is currently open */
+  registrationOpen?: boolean;
   /** Certificate issued after attendance */
   certificateEnabled?: boolean;
   /** Tags / topics covered in the event */

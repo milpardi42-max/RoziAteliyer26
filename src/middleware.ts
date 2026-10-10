@@ -2,6 +2,8 @@ import { NextResponse, type NextRequest } from "next/server";
 import { ADMIN_LOGIN_DISABLED } from "@/lib/admin-access";
 import { DEFAULT_LOCALE, LOCALES } from "@/lib/i18n/types";
 import { readSessionToken, SESSION_COOKIE } from "@/lib/session";
+import { applySecurityHeaders } from "@/lib/security/headers";
+import { ensureCsrfToken } from "@/lib/security/csrf";
 
 function isOwnerEmail(email: string): boolean {
   const ownerEmail = process.env.OWNER_EMAIL?.trim().toLowerCase();
@@ -11,6 +13,11 @@ function isOwnerEmail(email: string): boolean {
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+
+  // Start with a normal next() response, then layer security headers + CSRF.
+  let res = NextResponse.next();
+  res = applySecurityHeaders(req, res);
+  ensureCsrfToken(req, res);
 
   /* -------- مسیرهای پنل ادمین (/admin/[locale]/) -------- */
   // این مسیرها از layout سایت جدا هستند
@@ -23,13 +30,13 @@ export async function middleware(req: NextRequest) {
       if (rest === "/login" || rest === "/login/") {
         const panelUrl = req.nextUrl.clone();
         panelUrl.pathname = `/admin/${adminMatch[1]}`;
-        return NextResponse.redirect(panelUrl);
+        return applySecurityHeaders(req, NextResponse.redirect(panelUrl));
       }
-      return NextResponse.next();
+      return res;
     }
 
     // صفحه لاگین ادمین نیازی به بررسی نشست ندارد
-    if (rest === "/login" || rest === "/login/") return NextResponse.next();
+    if (rest === "/login" || rest === "/login/") return res;
 
     // بقیه مسیرهای ادمین نیاز به نقش admin دارند
     const sessionToken = req.cookies.get(SESSION_COOKIE)?.value;
@@ -38,9 +45,11 @@ export async function middleware(req: NextRequest) {
       const locale = adminMatch[1];
       const loginUrl = req.nextUrl.clone();
       loginUrl.pathname = `/admin/${locale}/login`;
-      return NextResponse.redirect(loginUrl);
+      loginUrl.search = "";
+      loginUrl.searchParams.set("next", `${req.nextUrl.pathname}${req.nextUrl.search}`);
+      return applySecurityHeaders(req, NextResponse.redirect(loginUrl));
     }
-    return NextResponse.next();
+    return res;
   }
 
   /* -------- i18n locale prefix (برای مسیرهای سایت اصلی) -------- */
@@ -50,7 +59,7 @@ export async function middleware(req: NextRequest) {
     const locale = LOCALES.includes(cookie as never) ? cookie : DEFAULT_LOCALE;
     const url = req.nextUrl.clone();
     url.pathname = `/${locale}${pathname === "/" ? "" : pathname}`;
-    return NextResponse.redirect(url);
+    return applySecurityHeaders(req, NextResponse.redirect(url));
   }
 
   /* -------- Protected routes (سایت اصلی) -------- */
@@ -74,7 +83,7 @@ export async function middleware(req: NextRequest) {
       const loginUrl = req.nextUrl.clone();
       loginUrl.pathname = `/${segments[0]}/login`;
       loginUrl.searchParams.set("next", pathname);
-      return NextResponse.redirect(loginUrl);
+      return applySecurityHeaders(req, NextResponse.redirect(loginUrl));
     }
   }
 
@@ -86,11 +95,11 @@ export async function middleware(req: NextRequest) {
       const loginUrl = req.nextUrl.clone();
       loginUrl.pathname = `/${segments[0]}/login`;
       loginUrl.searchParams.set("next", pathname);
-      return NextResponse.redirect(loginUrl);
+      return applySecurityHeaders(req, NextResponse.redirect(loginUrl));
     }
   }
 
-  return NextResponse.next();
+  return res;
 }
 
 export const config = {

@@ -19,6 +19,7 @@ import { getAllReservations } from "@/lib/data/reservations";
 import { getSession } from "@/lib/auth";
 import { hasGrantedReservation, isFreePrice } from "@/lib/academy-live";
 import { enrichEducation, enrichPattern, enrichProduct, getSite } from "@/lib/data/queries";
+import type { EnrichedEducation } from "@/lib/data/enrich";
 import { dictionaries } from "@/lib/i18n/dictionary";
 import { LOCALES, type Locale } from "@/lib/i18n/types";
 import { faNum, formatDuration, formatPrice, href, t } from "@/lib/utils";
@@ -81,9 +82,36 @@ export default async function EducationDetail({ params }: Props) {
       canPlay: video.free === true || linkedLesson?.free === true || courseHasAccess,
     };
   });
-  const eventHost = e.liveEvent?.hostNameCustom && e.liveEvent.hostName
-    ? t(e.liveEvent.hostName, locale)
-    : null;
+  // Resolved instructor/host names (may come from custom entry or selected artist)
+  const enriched = e as EnrichedEducation & {
+    instructor?: { name: string; photo?: string } | null;
+    host?: { name: string; photo?: string } | null;
+  };
+  const instructorName = enriched.instructor?.name;
+  const instructorPhoto = enriched.instructor?.photo;
+  const hostName = enriched.host?.name;
+  const hostPhoto = enriched.host?.photo;
+  const eventHost = instructorName && instructorName.trim() ? instructorName : null;
+
+  // Helper to render a person chip with avatar
+  const PersonChip = ({ name, photo, label, href }: { name: string; photo?: string; label: string; href?: string }) => {
+    const content = (
+      <span className="inline-flex items-center gap-2">
+        <span className="relative h-8 w-8 overflow-hidden rounded-full border border-white/20 bg-white/10">
+          {photo ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={photo} alt="" className="h-full w-full object-cover" />
+          ) : null}
+        </span>
+        {label}: {name}
+      </span>
+    );
+    return href ? (
+      <Link href={href} className="inline-flex items-center gap-2 hover:text-white">{content}</Link>
+    ) : (
+      content
+    );
+  };
   const related = site.education
     .filter((x) => x.id !== e.id && (x.categoryId === e.categoryId || x.authorId === e.authorId))
     .slice(0, 3)
@@ -163,7 +191,25 @@ export default async function EducationDetail({ params }: Props) {
             {t(e.title, locale)}
           </h1>
           <div className="anim-fade-up mt-6 flex flex-wrap items-center gap-x-6 gap-y-3 text-caption text-white/75" style={{ animationDelay: "200ms" }}>
-            {eventHost ? (
+            {(e.type === "webinar" || e.type === "workshop") ? (
+              <>
+                {instructorName ? (
+                  <PersonChip
+                    name={instructorName}
+                    photo={instructorPhoto}
+                    label="مدرس"
+                    href={e.author && !enriched.instructor?.artist ? href(locale, `/artists/${e.author.slug}`) : undefined}
+                  />
+                ) : null}
+                {hostName ? (
+                  <PersonChip
+                    name={hostName}
+                    photo={hostPhoto}
+                    label="میزبان"
+                  />
+                ) : null}
+              </>
+            ) : eventHost ? (
               <span className="inline-flex items-center gap-2">
                 {d.common.author}: {eventHost}
               </span>

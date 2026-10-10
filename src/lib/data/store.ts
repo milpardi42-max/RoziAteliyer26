@@ -97,9 +97,9 @@ interface Envelope {
 
 function normalizeEventHosts(content: SiteContent): SiteContent {
   const academyHost = seedContent.artists.find((artist) => artist.id === "artist-razieh-khairipour");
-  const replacePreviousHost = (value: { fa: string; en: string }) => ({
-    fa: value.fa.replaceAll("نیلوفر راد", "راضیه خیری پور"),
-    en: value.en.replaceAll("Niloufar Rad", "Razieh Khairipour"),
+  const replacePreviousHost = (value: { fa: string; en: string } | undefined) => ({
+    fa: (value?.fa ?? "").replaceAll("نیلوفر راد", "راضیه خیری پور"),
+    en: (value?.en ?? "").replaceAll("Niloufar Rad", "Razieh Khairipour"),
   });
 
   return {
@@ -122,8 +122,8 @@ function normalizeEventHosts(content: SiteContent): SiteContent {
         : liveEvent;
       return {
         ...item,
-        authorId: "artist-razieh-khairipour",
-        title: replacePreviousHost(item.title),
+        authorId: item.authorId || "artist-razieh-khairipour",
+        title: item.title ? replacePreviousHost(item.title) : { fa: "", en: "" },
         excerpt: replacePreviousHost(item.excerpt),
         body: replacePreviousHost(item.body),
         liveEvent: nextLiveEvent,

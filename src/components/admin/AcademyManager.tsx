@@ -173,6 +173,201 @@ function LocalizedField({
   );
 }
 
+/** Persian-only single-language field — used for webinar/workshop content. */
+function FaField({
+  label, value, onChange, textarea, required, placeholder,
+}: {
+  label: string;
+  value: string;
+  onChange: (v: string) => void;
+  textarea?: boolean;
+  required?: boolean;
+  placeholder?: string;
+}) {
+  const C = textarea ? Textarea : Input;
+  return (
+    <div className="mb-3">
+      <Field label={`${label}${required ? " *" : ""}`}>
+        <C dir="rtl" value={value} placeholder={placeholder ?? "فارسی…"}
+          onChange={(e: React.ChangeEvent<HTMLInputElement & HTMLTextAreaElement>) =>
+            onChange(e.target.value)} />
+      </Field>
+    </div>
+  );
+}
+
+/** Small image uploader with preview — returns public URL via /api/artist/upload. */
+function ImagePicker({
+  label, value, onChange, size = 72,
+}: {
+  label: string;
+  value: string;
+  onChange: (url: string) => void;
+  size?: number;
+}) {
+  const [busy, setBusy] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const inputRef = useRef<HTMLInputElement>(null);
+
+  const handleFile = async (file: File) => {
+    setBusy(true);
+    setError(null);
+    try {
+      const form = new FormData();
+      form.append("file", file);
+      const response = await fetch("/api/artist/upload", {
+        method: "POST",
+        credentials: "include",
+        body: form,
+      });
+      const result = await response.json() as { ok: boolean; url?: string; error?: string };
+      if (!response.ok || !result.ok || !result.url) throw new Error(result.error ?? "upload_failed");
+      onChange(result.url);
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "خطا در آپلود");
+    } finally {
+      setBusy(false);
+    }
+  };
+
+  return (
+    <div className="flex items-start gap-3">
+      <div
+        className="relative flex shrink-0 items-center justify-center overflow-hidden rounded-full border-2 border-dashed border-border bg-background-secondary"
+        style={{ width: size, height: size }}
+      >
+        {value ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img src={value} alt={label} className="h-full w-full object-cover" />
+        ) : (
+          <Camera className="h-5 w-5 text-muted" />
+        )}
+        {busy && (
+          <div className="absolute inset-0 flex items-center justify-center bg-black/40 text-white">
+            <div className="h-5 w-5 rounded-full border-2 border-white border-t-transparent animate-spin" />
+          </div>
+        )}
+      </div>
+      <div className="flex flex-col gap-1.5">
+        <span className="text-xs font-medium text-foreground-secondary">{label}</span>
+        <div className="flex gap-2">
+          <button
+            type="button"
+            onClick={() => inputRef.current?.click()}
+            className="inline-flex items-center gap-1 rounded-md border border-border bg-white px-2.5 py-1.5 text-xs font-medium text-foreground hover:border-accent/60 hover:bg-accent/5"
+          >
+            <Upload className="h-3.5 w-3.5" />
+            {value ? "تغییر عکس" : "آپلود عکس"}
+          </button>
+          {value && (
+            <button
+              type="button"
+              onClick={() => onChange("")}
+              className="inline-flex items-center gap-1 rounded-md border border-red-200 bg-white px-2.5 py-1.5 text-xs font-medium text-red-600 hover:bg-red-50"
+            >
+              <X className="h-3.5 w-3.5" />
+              حذف
+            </button>
+          )}
+        </div>
+        <input
+          ref={inputRef}
+          type="file"
+          accept="image/jpeg,image/png,image/webp,image/avif"
+          className="sr-only"
+          onChange={(e) => {
+            const f = e.target.files?.[0];
+            if (f) void handleFile(f);
+            if (inputRef.current) inputRef.current.value = "";
+          }}
+        />
+        {error && <p className="text-[11px] text-red-600">{error}</p>}
+      </div>
+    </div>
+  );
+}
+
+/**
+ * PersonPicker — انتخاب یا ورود دستی مدرس/میزبان + عکس.
+ * اگر تیک «ورود نام دلخواه» روشن باشد، نام و عکس دستی وارد می‌شود؛
+ * در غیر این صورت از لیست هنرمندان/اساتید انتخاب می‌شود.
+ */
+function PersonPicker({
+  label,
+  icon,
+  artists,
+  selectedId,
+  onSelectId,
+  customEnabled,
+  onToggleCustom,
+  customName,
+  onCustomName,
+  photoUrl,
+  onPhoto,
+}: {
+  label: string;
+  icon: React.ReactNode;
+  artists: Artist[];
+  selectedId: string;
+  onSelectId: (id: string) => void;
+  customEnabled: boolean;
+  onToggleCustom: (v: boolean) => void;
+  customName: string;
+  onCustomName: (v: string) => void;
+  photoUrl: string;
+  onPhoto: (url: string) => void;
+}) {
+  const selectedArtist = artists.find((a) => a.id === selectedId);
+  const previewPhoto = customEnabled ? photoUrl : (selectedArtist?.avatar ?? "");
+  const previewName = customEnabled ? customName : (selectedArtist ? t(selectedArtist.name, "fa") : "");
+
+  return (
+    <div className="rounded-lg border border-border bg-white/70 p-3">
+      <div className="flex items-center justify-between gap-2 mb-3">
+        <div className="flex items-center gap-2 text-sm font-semibold text-foreground">
+          <span className="text-foreground-secondary">{icon}</span>
+          {label}
+        </div>
+        <label className="flex cursor-pointer items-center gap-2 text-[11px] text-foreground-secondary">
+          <input
+            type="checkbox"
+            className="h-4 w-4 accent-accent"
+            checked={customEnabled}
+            onChange={(e) => onToggleCustom(e.target.checked)}
+          />
+          ورود نام دلخواه
+        </label>
+      </div>
+
+      <div className="flex flex-col gap-3 sm:flex-row sm:items-start">
+        <ImagePicker label="عکس" value={previewPhoto} onChange={onPhoto} size={64} />
+        <div className="flex-1 min-w-0">
+          {customEnabled ? (
+            <Field label={`نام ${label}`}>
+              <Input dir="rtl" value={customName} placeholder="نام را وارد کنید…"
+                onChange={(e) => onCustomName(e.target.value)} />
+            </Field>
+          ) : (
+            <Field label={`انتخاب ${label} از لیست`}>
+              <Select value={selectedId} onChange={(e) => onSelectId(e.target.value)}>
+                <option value="">— انتخاب کنید —</option>
+                {artists.map((a) => (
+                  <option key={a.id} value={a.id}>{t(a.name, "fa")}</option>
+                ))}
+              </Select>
+            </Field>
+          )}
+          {previewName && (
+            <p className="mt-2 text-xs text-muted">
+              {customEnabled ? "نام دلخواه:" : "انتخاب‌شده:"} <span className="font-semibold text-foreground">{previewName}</span>
+            </p>
+          )}
+        </div>
+      </div>
+    </div>
+  );
+}
+
 function SectionBox({ title, icon, color = "blue", children }: {
   title: string; icon: React.ReactNode; color?: "blue" | "emerald" | "rose" | "purple";
   children: React.ReactNode;
@@ -521,16 +716,24 @@ function VideoUploadPanel({
    ═══════════════════════════════════════════════════════════════ */
 
 function WorkshopEventSection({
-  live, onChange, slug, registeredCount, saved,
+  live, onChange, slug, registeredCount, saved, artists,
+  publishedAt, onPublishedAtChange,
 }: {
-  live: LiveEventConfig; onChange: (v: LiveEventConfig) => void; slug: string; registeredCount: number; saved: boolean;
+  live: LiveEventConfig;
+  onChange: (v: LiveEventConfig) => void;
+  slug: string;
+  registeredCount: number;
+  saved: boolean;
+  artists: Artist[];
+  publishedAt: string;
+  onPublishedAtChange: (v: string) => void;
 }) {
   const set = <K extends keyof LiveEventConfig>(k: K, v: LiveEventConfig[K]) =>
     onChange({ ...live, [k]: v });
 
   const pct = live.capacity > 0
     ? Math.min(100, Math.round((registeredCount / live.capacity) * 100)) : 0;
-  const safeMeetLink = safeExternalHttpsUrl(live.meetLink)?.href;
+  const safeMeetLink = safeExternalHttpsUrl(live.meetLink)?.href ?? null;
   const stream = live.webinarStream ?? {
     source: "camera" as const,
     chatEnabled: true,
@@ -539,6 +742,18 @@ function WorkshopEventSection({
   const setStream = <K extends keyof WebinarStreamConfig>(k: K, v: WebinarStreamConfig[K]) =>
     set("webinarStream", { ...stream, [k]: v });
   const displayStatus = eventStatusOf(live);
+
+  // Migrate legacy hostNameCustom
+  useEffect(() => {
+    if (live.hostNameCustom && !live.instructorNameCustom && !live.hostCustom) {
+      const faName = typeof live.hostName?.fa === "string" ? live.hostName.fa : "";
+      onChange({ ...live, instructorNameCustom: true, instructorName: faName });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const unavailable = displayStatus === "ended" || displayStatus === "cancelled";
+  const broadcastReady = saved && live.isOnline && stream.source === "camera" && !unavailable;
 
   return (
     <div className="space-y-4">
@@ -552,10 +767,7 @@ function WorkshopEventSection({
         meetingUrl={safeMeetLink}
       />
 
-      <details className="rounded-xl border border-border bg-white p-4">
-        <summary className="cursor-pointer text-sm font-semibold text-foreground">اگر پخش Zoom/Meet یا ورکشاپ حضوری می‌خواهید، اینجا را باز کنید</summary>
-        <div className="mt-4 space-y-4">
-      {/* ── وضعیت رویداد — کارت بالای صفحه ── */}
+      {/* ── وضعیت رویداد ── */}
       <div className={cn(
         "rounded-xl border-2 p-4 transition-all",
         displayStatus === "live"
@@ -593,7 +805,7 @@ function WorkshopEventSection({
         )}
       </div>
 
-      {/* ── نوع برگزاری: آنلاین یا حضوری ── */}
+      {/* ── نوع برگزاری ── */}
       <SectionBox title="نوع برگزاری" icon={<Wifi className="h-4 w-4" />} color="emerald">
         <div className="grid grid-cols-2 gap-3">
           <button
@@ -629,11 +841,109 @@ function WorkshopEventSection({
             </span>
           </button>
         </div>
+      </SectionBox>
 
-        {/* Online: روش پخش */}
-        {live.isOnline && (
-          <div className="space-y-3 pt-1">
-            <p className="text-xs font-semibold text-muted">روش برگزاری آنلاین</p>
+      {/* ── کادر یکپارچه: انتشار + زمان‌بندی + ظرفیت + مدرس/میزبان ── */}
+      <SectionBox title="تنظیمات برگزاری و زمان‌بندی" icon={<Calendar className="h-4 w-4" />} color="emerald">
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="تاریخ انتشار">
+            <Input type="date" dir="ltr" value={publishedAt?.slice(0, 10) ?? ""}
+              onChange={(e) => onPublishedAtChange(e.target.value)} />
+          </Field>
+          <Field label="ساعت و تاریخ ورکشاپ (شروع)">
+            <Input type="datetime-local" dir="ltr"
+              value={toDateTimeLocalValue(live.startsAt)}
+              onChange={(e) => set("startsAt", fromDateTimeLocalValue(e.target.value))} />
+          </Field>
+        </div>
+        <p className="-mt-1 text-xs leading-5 text-muted">
+          «تاریخ انتشار» زمان نمایش صفحهٔ ورکشاپ در سایت است و «ساعت و تاریخ ورکشاپ» لحظهٔ شروع جلسه.
+        </p>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="مدت زمان ورکشاپ (دقیقه)">
+            <Input type="number" min={1} value={live.durationMin || ""}
+              onChange={(e) => set("durationMin", Number(e.target.value))} />
+          </Field>
+          <Field label="ظرفیت (۰ = نامحدود)">
+            <Input type="number" min={0} value={live.capacity}
+              onChange={(e) => set("capacity", Number(e.target.value))} />
+          </Field>
+        </div>
+
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="flex h-9 cursor-pointer items-center gap-2 rounded-md border border-border bg-white px-3 text-sm">
+            <input type="checkbox" className="h-4 w-4 accent-accent"
+              checked={live.registrationOpen !== false}
+              onChange={(e) => set("registrationOpen", e.target.checked)} />
+            <span className="font-medium">ثبت‌نام فعال</span>
+            <span className="text-xs text-muted mr-1">
+              {live.registrationOpen !== false ? "(باز است)" : "(بسته است)"}
+            </span>
+          </label>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-muted">تعداد ثبت‌نام‌شده (واقعی)</span>
+            <div className="flex h-9 items-center rounded-md border border-border bg-background-secondary px-3 text-sm font-semibold text-foreground tabular-nums">
+              {registeredCount.toLocaleString("fa-IR")} نفر
+            </div>
+          </div>
+        </div>
+
+        {live.capacity > 0 && (
+          <div className="space-y-1">
+            <div className="flex justify-between text-xs text-muted">
+              <span>پر شدن ظرفیت</span>
+              <span>{registeredCount.toLocaleString("fa-IR")}/{live.capacity.toLocaleString("fa-IR")} ({pct.toLocaleString("fa-IR")}٪)</span>
+            </div>
+            <div className="h-1.5 overflow-hidden rounded-full border border-border bg-white">
+              <div className={cn("h-full rounded-full transition-all",
+                pct >= 90 ? "bg-red-500" : pct >= 70 ? "bg-amber-400" : "bg-emerald-500")}
+                style={{ width: `${pct}%` }} />
+            </div>
+          </div>
+        )}
+
+        <div className="my-3 border-t border-dashed border-emerald-200" />
+
+        <p className="text-xs font-semibold text-emerald-800 flex items-center gap-2 mb-2">
+          <GraduationCap className="h-3.5 w-3.5" />
+          مدرس و میزبان
+        </p>
+        <div className="grid gap-3 md:grid-cols-2">
+          <PersonPicker
+            label="مدرس"
+            icon={<Mic2 className="h-4 w-4" />}
+            artists={artists}
+            selectedId={live.instructorId ?? ""}
+            onSelectId={(v) => set("instructorId", v)}
+            customEnabled={!!live.instructorNameCustom}
+            onToggleCustom={(v) => set("instructorNameCustom", v)}
+            customName={live.instructorName ?? ""}
+            onCustomName={(v) => set("instructorName", v)}
+            photoUrl={live.instructorPhoto ?? ""}
+            onPhoto={(v) => set("instructorPhoto", v)}
+          />
+          <PersonPicker
+            label="میزبان"
+            icon={<Users className="h-4 w-4" />}
+            artists={artists}
+            selectedId={live.hostId ?? ""}
+            onSelectId={(v) => set("hostId", v)}
+            customEnabled={!!live.hostCustom}
+            onToggleCustom={(v) => set("hostCustom", v)}
+            customName={live.hostNameFa ?? ""}
+            onCustomName={(v) => set("hostNameFa", v)}
+            photoUrl={live.hostPhoto ?? ""}
+            onPhoto={(v) => set("hostPhoto", v)}
+          />
+        </div>
+      </SectionBox>
+
+      {/* ── جزئیات آنلاین/حضوری ── */}
+      {live.isOnline ? (
+        <SectionBox title="اتصال آنلاین" icon={<MonitorPlay className="h-4 w-4" />} color="emerald">
+          <div>
+            <p className="mb-2 text-xs font-semibold text-muted">روش برگزاری آنلاین</p>
             <div className="grid grid-cols-2 gap-2">
               <button
                 type="button"
@@ -647,9 +957,7 @@ function WorkshopEventSection({
               >
                 <Camera className="h-5 w-5" />
                 دوربین مرورگر
-                <span className="font-normal opacity-60 text-[10px] text-center leading-tight">
-                  پخش زنده داخلی سایت
-                </span>
+                <span className="font-normal opacity-60 text-[10px] text-center leading-tight">پخش زنده داخلی سایت</span>
               </button>
               <button
                 type="button"
@@ -663,136 +971,100 @@ function WorkshopEventSection({
               >
                 <MonitorPlay className="h-5 w-5" />
                 Zoom / Meet
-                <span className="font-normal opacity-60 text-[10px] text-center leading-tight">
-                  لینک جلسه خارجی
-                </span>
+                <span className="font-normal opacity-60 text-[10px] text-center leading-tight">لینک جلسه خارجی</span>
               </button>
             </div>
+          </div>
 
-            {/* Camera mode */}
-            {stream.source === "camera" && (
-              <div className={cn(
-                "rounded-lg border p-3 text-sm space-y-2",
-                displayStatus === "live"
-                  ? "border-red-300 bg-red-50 text-red-900"
-                  : "border-emerald-200 bg-emerald-50 text-emerald-800"
-              )}>
-                <p className="font-semibold flex items-center gap-2 text-xs">
-                  <Camera className="h-3.5 w-3.5" />
-                    پخش زنده با دوربین سایت
-                    {displayStatus === "live" && (
-                      <span className="mr-auto flex items-center gap-1 text-[10px] font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded-full">
-                        <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
-                        در حال پخش
-                      </span>
-                    )}
-                  </p>
-                  <p className="text-xs leading-6">
-                    برای شروع و فرستادن لینک مهمان‌ها از کارت سبز «شروع آسان ورکشاپ» در بالای این فرم استفاده کنید.
-                  </p>
+          {stream.source === "camera" && (
+            <div className={cn(
+              "rounded-lg border p-4 space-y-3",
+              displayStatus === "live"
+                ? "border-red-300 bg-red-50 text-red-900"
+                : "border-emerald-200 bg-emerald-50 text-emerald-800"
+            )}>
+              <p className="font-semibold flex items-center gap-2">
+                <Camera className="h-4 w-4" />
+                پخش زنده با دوربین سایت
+                {displayStatus === "live" && (
+                  <span className="mr-auto flex items-center gap-1 text-xs font-bold text-red-600 bg-red-100 px-2 py-0.5 rounded-full">
+                    <span className="w-1.5 h-1.5 rounded-full bg-red-500 animate-pulse" />
+                    در حال پخش
+                  </span>
+                )}
+              </p>
+              <p className="text-xs leading-6">
+                {broadcastReady
+                  ? "ورکشاپ ذخیره شد. با دکمهٔ زیر وارد اتاق پخش زنده شوید."
+                  : "پس از تکمیل اطلاعات، از دکمهٔ «ذخیره و رفتن به پخش» در پایین مودال استفاده کنید."}
+              </p>
+              {broadcastReady ? (
+                <Link
+                  href={`/fa/academy/${slug}/broadcast`}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className={cn(
+                    "inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-bold text-white shadow-md transition-colors",
+                    displayStatus === "live" ? "bg-red-600 hover:bg-red-700" : "bg-emerald-600 hover:bg-emerald-700"
+                  )}
+                >
+                  <Radio className="h-5 w-5" />
+                  {displayStatus === "live" ? "ورود به اتاق پخش (در حال پخش)" : "ورود به پخش از دوربین"}
+                  <ExternalLink className="h-4 w-4 opacity-70" />
+                </Link>
+              ) : (
+                <div className="rounded-lg border border-dashed border-emerald-300 bg-white/60 px-4 py-3 text-xs">
+                  {unavailable
+                    ? "این رویداد پایان یافته یا لغو شده است."
+                    : "ابتدا ورکشاپ را با دکمهٔ «ذخیره و رفتن به پخش» در پایین مودال ذخیره کنید."}
                 </div>
               )}
+            </div>
+          )}
 
-            {/* External (Zoom/Meet) mode */}
-            {stream.source === "external" && (
-              <div className="space-y-3">
-                <div className="grid gap-3 sm:grid-cols-2">
-                  <Field label="پلتفرم (Zoom / Meet…)">
-                    <Input dir="ltr" value={live.platform ?? ""}
-                      placeholder="Zoom"
-                      onChange={(e) => set("platform", e.target.value)} />
-                  </Field>
-                  <Field label="لینک جلسه آنلاین">
-                    <div className="flex gap-2">
-                      <Input dir="ltr" value={live.meetLink ?? ""}
-                        placeholder="https://zoom.us/j/…"
-                        onChange={(e) => set("meetLink", e.target.value)}
-                        className="flex-1" />
-                      {safeMeetLink && (
-                        <a href={safeMeetLink} target="_blank" rel="noopener noreferrer"
-                          className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-white text-muted hover:text-foreground">
-                          <ExternalLink className="h-3.5 w-3.5" />
-                        </a>
-                      )}
-                    </div>
-                  </Field>
-                </div>
+          {stream.source === "external" && (
+            <div className="space-y-3">
+              <div className="grid gap-3 sm:grid-cols-2">
+                <Field label="پلتفرم (Zoom / Meet…)">
+                  <Input dir="ltr" value={live.platform ?? ""}
+                    placeholder="Zoom"
+                    onChange={(e) => set("platform", e.target.value)} />
+                </Field>
+                <Field label="لینک جلسه آنلاین">
+                  <div className="flex gap-2">
+                    <Input dir="ltr" value={live.meetLink ?? ""}
+                      placeholder="https://zoom.us/j/…"
+                      onChange={(e) => set("meetLink", e.target.value)}
+                      className="flex-1" />
+                    {safeMeetLink && (
+                      <a href={safeMeetLink} target="_blank" rel="noopener noreferrer"
+                        className="flex h-9 w-9 shrink-0 items-center justify-center rounded-md border border-border bg-white text-muted hover:text-foreground">
+                        <ExternalLink className="h-3.5 w-3.5" />
+                      </a>
+                    )}
+                  </div>
+                </Field>
               </div>
-            )}
-          </div>
-        )}
-
-        {/* Offline: venue */}
-        {!live.isOnline && (
-          <LocalizedField
-            label="آدرس برگزاری (مکان فیزیکی)"
-            value={live.venue ?? { fa: "", en: "" }}
-            onChange={(v) => set("venue", v.fa || v.en ? v : undefined)}
+            </div>
+          )}
+        </SectionBox>
+      ) : (
+        <SectionBox title="مکان برگزاری (حضوری)" icon={<MapPin className="h-4 w-4" />} color="emerald">
+          <FaField
+            label="آدرس برگزاری"
+            value={live.venue?.fa ?? ""}
+            onChange={(v) => set("venue", v ? { fa: v, en: live.venue?.en ?? "" } : undefined)}
+            textarea
+            placeholder="آدرس کامل محل برگزاری…"
           />
-        )}
-      </SectionBox>
-        </div>
-      </details>
+        </SectionBox>
+      )}
 
-      {/* ── زمان‌بندی و ظرفیت ── */}
-      <SectionBox title="زمان‌بندی و ظرفیت" icon={<Calendar className="h-4 w-4" />} color="emerald">
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="تاریخ و زمان شروع">
-            <Input type="datetime-local" dir="ltr"
-              value={toDateTimeLocalValue(live.startsAt)}
-              onChange={(e) => set("startsAt", fromDateTimeLocalValue(e.target.value))} />
-          </Field>
-          <Field label="مدت (دقیقه)">
-            <Input type="number" min={1} value={live.durationMin || ""}
-              onChange={(e) => set("durationMin", Number(e.target.value))} />
-          </Field>
-        </div>
-        <p className="text-xs leading-5 text-muted">تاریخ و ساعت را با تقویم و ساعت همین فیلد انتخاب کنید؛ زمان بر اساس ساعت محلی دستگاه شما ثبت می‌شود.</p>
-        <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="ظرفیت (۰ = نامحدود)">
-            <Input type="number" min={0} value={live.capacity}
-              onChange={(e) => set("capacity", Number(e.target.value))} />
-          </Field>
-          <div className="flex flex-col justify-end gap-1">
-            <span className="text-xs font-medium text-muted">ثبت‌نام فعال (از رزروهای واقعی)</span>
-            <div className="flex h-9 items-center rounded-md border border-border bg-background-secondary px-3 text-sm font-semibold text-foreground tabular-nums">
-              {registeredCount.toLocaleString("fa-IR")}
-            </div>
-          </div>
-        </div>
-        {live.capacity > 0 && (
-          <div className="space-y-1">
-            <div className="flex justify-between text-xs text-muted">
-              <span>پر شدن ظرفیت</span>
-              <span>{registeredCount}/{live.capacity} ({pct}%)</span>
-            </div>
-            <div className="h-1.5 overflow-hidden rounded-full border border-border bg-white">
-              <div className={cn("h-full rounded-full transition-all",
-                pct >= 90 ? "bg-red-500" : pct >= 70 ? "bg-amber-400" : "bg-emerald-500")}
-                style={{ width: `${pct}%` }} />
-            </div>
-          </div>
-        )}
-      </SectionBox>
-
-      {/* Recording/certificate options stay explicit until their delivery flows exist. */}
+      {/* ── ضبط و گواهینامه ── */}
       <SectionBox title="ضبط و گواهینامه" icon={<Download className="h-4 w-4" />} color="emerald">
         <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-xs leading-6 text-amber-900">
           پخش زنده در حال حاضر ضبط یا ذخیره نمی‌شود و صدور گواهینامه خودکار فعال نیست. پس از پیاده‌سازی آپلود خصوصی و فرایند صدور، این امکانات از همین‌جا قابل مدیریت خواهند بود.
         </div>
-        <label className="flex cursor-pointer items-center gap-2 text-sm pt-1">
-          <input type="checkbox" className="h-4 w-4 accent-accent"
-            checked={!!live.hostNameCustom}
-            onChange={(e) => set("hostNameCustom", e.target.checked)} />
-          استفاده از نام سفارشی مدرس/میزبان
-        </label>
-        {live.hostNameCustom && (
-          <LocalizedField
-            label="نام مدرس/میزبان"
-            value={live.hostName ?? { fa: "راضیه خیری پور", en: "Razieh Khairipour" }}
-            onChange={(v) => set("hostName", v.fa || v.en ? v : undefined)}
-          />
-        )}
       </SectionBox>
     </div>
   );
@@ -908,9 +1180,17 @@ function EventQuickStart({
    ═══════════════════════════════════════════════════════════════ */
 
 function WebinarEventSection({
-  live, onChange, slug, registeredCount, saved,
+  live, onChange, slug, registeredCount, saved, artists,
+  publishedAt, onPublishedAtChange,
 }: {
-  live: LiveEventConfig; onChange: (v: LiveEventConfig) => void; slug: string; registeredCount: number; saved: boolean;
+  live: LiveEventConfig;
+  onChange: (v: LiveEventConfig) => void;
+  slug: string;
+  registeredCount: number;
+  saved: boolean;
+  artists: Artist[];
+  publishedAt: string;
+  onPublishedAtChange: (v: string) => void;
 }) {
   const set = <K extends keyof LiveEventConfig>(k: K, v: LiveEventConfig[K]) =>
     onChange({ ...live, [k]: v });
@@ -922,6 +1202,22 @@ function WebinarEventSection({
 
   const pct = live.capacity > 0
     ? Math.min(100, Math.round((registeredCount / live.capacity) * 100)) : 0;
+
+  // Migrate legacy hostNameCustom to new instructor/host fields when present
+  useEffect(() => {
+    if (live.hostNameCustom && !live.instructorNameCustom && !live.hostCustom) {
+      const faName = typeof live.hostName?.fa === "string" ? live.hostName.fa : "";
+      onChange({
+        ...live,
+        instructorNameCustom: true,
+        instructorName: faName,
+      });
+    }
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, []);
+
+  const unavailable = displayStatus === "ended" || displayStatus === "cancelled";
+  const broadcastReady = saved && stream.source === "camera" && !unavailable;
 
   return (
     <div className="space-y-4">
@@ -970,49 +1266,70 @@ function WebinarEventSection({
         )}
         {displayStatus === "live" && (
           <p className="mt-2 text-xs text-red-700 font-medium">
-            🔴 وبینار الان در حال پخش است — دکمه پخش زنده در پایین همین صفحه فعال است
+            🔴 وبینار الان در حال پخش است — دکمه پخش زنده در پایین همین کادر فعال است
           </p>
         )}
         {displayStatus === "scheduled" && (
           <p className="mt-2 text-xs text-amber-700">
-            برای شروع پخش دوربین، از بخش «منبع استریم» پایین‌تر دکمه کنترل دوربین را باز کنید؛ تغییر دستی وضعیت لازم نیست.
+            پس از تکمیل اطلاعات، از دکمهٔ «ورود به پخش از دوربین» در پایین همین صفحه برای شروع استریم استفاده کنید.
           </p>
         )}
       </div>
 
-      <SectionBox title="تنظیمات وبینار زنده" icon={<Radio className="h-4 w-4" />} color="rose">
-        {/* Date + Duration */}
+      {/* ── کادر یکپارچه: تاریخ انتشار + تنظیمات وبینار زنده ── */}
+      <SectionBox title="تنظیمات وبینار زنده و زمان‌بندی انتشار" icon={<Radio className="h-4 w-4" />} color="rose">
+        {/* ردیف ۱: تاریخ انتشار + تاریخ/ساعت شروع وبینار */}
         <div className="grid gap-3 sm:grid-cols-2">
-          <Field label="تاریخ و زمان شروع">
+          <Field label="تاریخ انتشار">
+            <Input type="date" dir="ltr" value={publishedAt?.slice(0, 10) ?? ""}
+              onChange={(e) => onPublishedAtChange(e.target.value)} />
+          </Field>
+          <Field label="ساعت و تاریخ وبینار (شروع)">
             <Input type="datetime-local" dir="ltr"
               value={toDateTimeLocalValue(live.startsAt)}
               onChange={(e) => set("startsAt", fromDateTimeLocalValue(e.target.value))} />
           </Field>
-          <Field label="مدت (دقیقه)">
+        </div>
+        <p className="-mt-1 text-xs leading-5 text-muted">
+          «تاریخ انتشار» زمانی است که صفحهٔ وبینار در سایت نمایش داده می‌شود؛ «ساعت و تاریخ وبینار» لحظهٔ شروع پخش زنده است. پس از انتخاب تاریخ این کادر بسته نمی‌ماند تا بتوانید بقیهٔ تنظیمات را هم تکمیل کنید.
+        </p>
+
+        {/* ردیف ۲: مدت + ظرفیت */}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <Field label="مدت زمان وبینار (دقیقه)">
             <Input type="number" min={1} value={live.durationMin || ""}
               onChange={(e) => set("durationMin", Number(e.target.value))} />
           </Field>
-        </div>
-        <p className="text-xs leading-5 text-muted">تاریخ و ساعت را با تقویم و ساعت همین فیلد انتخاب کنید؛ زمان بر اساس ساعت محلی دستگاه شما ثبت می‌شود.</p>
-
-        {/* Capacity */}
-        <div className="grid gap-3 sm:grid-cols-2">
           <Field label="ظرفیت بینندگان (۰ = نامحدود)">
             <Input type="number" min={0} value={live.capacity}
               onChange={(e) => set("capacity", Number(e.target.value))} />
           </Field>
-          <div className="flex flex-col justify-end gap-1">
-            <span className="text-xs font-medium text-muted">ثبت‌نام فعال (از رزروهای واقعی)</span>
+        </div>
+
+        {/* ردیف ۳: ثبت نام فعال + تعداد واقعی */}
+        <div className="grid gap-3 sm:grid-cols-2">
+          <label className="flex h-9 cursor-pointer items-center gap-2 rounded-md border border-border bg-white px-3 text-sm">
+            <input type="checkbox" className="h-4 w-4 accent-accent"
+              checked={live.registrationOpen !== false}
+              onChange={(e) => set("registrationOpen", e.target.checked)} />
+            <span className="font-medium">ثبت‌نام فعال</span>
+            <span className="text-xs text-muted mr-1">
+              {live.registrationOpen !== false ? "(باز است)" : "(بسته است)"}
+            </span>
+          </label>
+          <div className="flex flex-col gap-1">
+            <span className="text-xs font-medium text-muted">تعداد ثبت‌نام‌شده (واقعی)</span>
             <div className="flex h-9 items-center rounded-md border border-border bg-background-secondary px-3 text-sm font-semibold text-foreground tabular-nums">
-              {registeredCount.toLocaleString("fa-IR")}
+              {registeredCount.toLocaleString("fa-IR")} نفر
             </div>
           </div>
         </div>
+
         {live.capacity > 0 && (
           <div className="space-y-1">
             <div className="flex justify-between text-xs text-muted">
               <span>پر شدن ظرفیت</span>
-              <span>{registeredCount}/{live.capacity} ({pct}%)</span>
+              <span>{registeredCount.toLocaleString("fa-IR")}/{live.capacity.toLocaleString("fa-IR")} ({pct.toLocaleString("fa-IR")}٪)</span>
             </div>
             <div className="h-1.5 overflow-hidden rounded-full border border-border bg-white">
               <div className={cn("h-full rounded-full transition-all",
@@ -1022,60 +1339,83 @@ function WebinarEventSection({
           </div>
         )}
 
-        <label className="flex cursor-pointer items-center gap-2 text-sm">
-          <input type="checkbox" className="h-4 w-4 accent-accent"
-            checked={!!live.hostNameCustom}
-            onChange={(e) => set("hostNameCustom", e.target.checked)} />
-          استفاده از نام سفارشی مدرس/میزبان
-        </label>
-        {live.hostNameCustom && (
-          <LocalizedField
-            label="نام مدرس/میزبان"
-            value={live.hostName ?? { fa: "راضیه خیری پور", en: "Razieh Khairipour" }}
-            onChange={(v) => set("hostName", v.fa || v.en ? v : undefined)}
-          />
-        )}
+        {/* جداکننده */}
+        <div className="my-3 border-t border-dashed border-rose-200" />
 
+        {/* مدرس و میزبان */}
+        <p className="text-xs font-semibold text-rose-800 flex items-center gap-2 mb-2">
+          <GraduationCap className="h-3.5 w-3.5" />
+          مدرس و میزبان
+        </p>
+        <div className="grid gap-3 md:grid-cols-2">
+          <PersonPicker
+            label="مدرس"
+            icon={<Mic2 className="h-4 w-4" />}
+            artists={artists}
+            selectedId={live.instructorId ?? ""}
+            onSelectId={(v) => set("instructorId", v)}
+            customEnabled={!!live.instructorNameCustom}
+            onToggleCustom={(v) => set("instructorNameCustom", v)}
+            customName={live.instructorName ?? ""}
+            onCustomName={(v) => set("instructorName", v)}
+            photoUrl={live.instructorPhoto ?? ""}
+            onPhoto={(v) => set("instructorPhoto", v)}
+          />
+          <PersonPicker
+            label="میزبان"
+            icon={<Users className="h-4 w-4" />}
+            artists={artists}
+            selectedId={live.hostId ?? ""}
+            onSelectId={(v) => set("hostId", v)}
+            customEnabled={!!live.hostCustom}
+            onToggleCustom={(v) => set("hostCustom", v)}
+            customName={live.hostNameFa ?? ""}
+            onCustomName={(v) => set("hostNameFa", v)}
+            photoUrl={live.hostPhoto ?? ""}
+            onPhoto={(v) => set("hostPhoto", v)}
+          />
+        </div>
       </SectionBox>
 
-      <details className="rounded-xl border border-border bg-white p-4">
-        <summary className="cursor-pointer text-sm font-semibold text-foreground">گزینه‌های بیشتر (اختیاری): نوع پخش، چت و ظرفیت</summary>
-        <div className="mt-4 space-y-4">
-      {/* Stream source */}
-      <SectionBox title="منبع استریم (دوربین/میکروفون)" icon={<Camera className="h-4 w-4" />} color="rose">
+      {/* ── منبع استریم + دکمه ورود به پخش ── */}
+      <SectionBox title="منبع استریم و پخش زنده" icon={<Camera className="h-4 w-4" />} color="rose">
         <div>
           <p className="mb-2 text-xs font-semibold text-muted">نوع پخش</p>
-          <div className="flex gap-2">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-2">
             <button
+              type="button"
               onClick={() => setStream("source", "camera")}
               className={cn(
-                "flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-all",
+                "flex flex-col items-center gap-1.5 rounded-lg border px-4 py-3 text-sm font-medium transition-all",
                 stream.source === "camera"
                   ? "border-rose-400 bg-rose-50 text-rose-700 ring-1 ring-rose-300"
                   : "border-border bg-white text-foreground-secondary hover:border-rose-300"
               )}
             >
-              <Camera className="h-4 w-4" />
+              <Camera className="h-5 w-5" />
               دوربین / میکروفون مرورگر
+              <span className="text-[11px] font-normal opacity-70">پخش مستقیم از داخل سایت</span>
             </button>
             <button
+              type="button"
               onClick={() => setStream("source", "external")}
               className={cn(
-                "flex items-center gap-2 rounded-lg border px-4 py-2.5 text-sm font-medium transition-all",
+                "flex flex-col items-center gap-1.5 rounded-lg border px-4 py-3 text-sm font-medium transition-all",
                 stream.source === "external"
                   ? "border-blue-400 bg-blue-50 text-blue-700 ring-1 ring-blue-300"
                   : "border-border bg-white text-foreground-secondary hover:border-blue-300"
               )}
             >
-              <MonitorPlay className="h-4 w-4" />
+              <MonitorPlay className="h-5 w-5" />
               HLS خارجی (سرویس آماده)
+              <span className="text-[11px] font-normal opacity-70">لینک استریم از سرویس دیگر</span>
             </button>
           </div>
         </div>
 
         {stream.source === "camera" && (
           <div className={cn(
-            "rounded-lg border p-4 text-sm space-y-3",
+            "rounded-lg border p-4 space-y-3",
             displayStatus === "live"
               ? "border-red-300 bg-red-50 text-red-900"
               : "border-rose-200 bg-rose-50 text-rose-800"
@@ -1091,9 +1431,34 @@ function WebinarEventSection({
               )}
             </p>
 
-            <p className="text-xs leading-6 text-rose-800">
-              دکمهٔ شروع پخش و لینک مهمان‌ها در کارت سبز «شروع آسان وبینار» بالای همین فرم هستند.
+            <p className="text-xs leading-6">
+              {broadcastReady
+                ? "وبینار ذخیره شد. با کلیک روی دکمهٔ زیر وارد اتاق پخش زنده می‌شوید و می‌توانید دوربین و میکروفون خود را فعال کنید. همچنین دکمهٔ همین رنگی در پایین مودال هم شما را مستقیم به اتاق پخش می‌برد."
+                : "پس از تکمیل اطلاعات، از دکمهٔ «ذخیره و رفتن به پخش» در پایین مودال استفاده کنید؛ هم‌زمان ذخیره شده و مستقیم وارد اتاق پخش می‌شوید."}
             </p>
+
+            {/* ── دکمه ورود به پخش ── */}
+            {broadcastReady ? (
+              <Link
+                href={`/fa/academy/${slug}/broadcast`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className={cn(
+                  "inline-flex w-full sm:w-auto items-center justify-center gap-2 rounded-xl px-5 py-3 text-sm font-bold text-white shadow-md transition-colors",
+                  displayStatus === "live" ? "bg-red-600 hover:bg-red-700" : "bg-rose-600 hover:bg-rose-700"
+                )}
+              >
+                <Radio className="h-5 w-5" />
+                {displayStatus === "live" ? "ورود به اتاق پخش (در حال پخش)" : "ورود به پخش از دوربین"}
+                <ExternalLink className="h-4 w-4 opacity-70" />
+              </Link>
+            ) : (
+              <div className="rounded-lg border border-dashed border-rose-300 bg-white/60 px-4 py-3 text-xs text-rose-800">
+                {unavailable
+                  ? "این رویداد پایان یافته یا لغو شده است؛ امکان ورود به پخش وجود ندارد."
+                  : "برای فعال‌شدن این دکمه، ابتدا وبینار را با دکمهٔ «ذخیره و رفتن به پخش» در پایین مودال ذخیره کنید."}
+              </div>
+            )}
           </div>
         )}
 
@@ -1131,12 +1496,12 @@ function WebinarEventSection({
         </Field>
       </SectionBox>
 
-      {/* Recording is intentionally not advertised until a protected upload/delivery path exists. */}
-      <SectionBox title="ضبط و بازپخش" icon={<Download className="h-4 w-4" />} color="rose">
-        <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-xs leading-6 text-amber-900">
-          این سامانه پخش زنده را ضبط یا ذخیره نمی‌کند و برای وبینار فایل ضبط‌شده‌ای ساخته نمی‌شود. انتشار ضبط فقط پس از راه‌اندازی مسیر آپلود خصوصی و کنترل دسترسی ممکن خواهد بود.
-        </div>
-      </SectionBox>
+      <details className="rounded-xl border border-border bg-white p-4">
+        <summary className="cursor-pointer text-sm font-semibold text-foreground">ضبط و بازپخش</summary>
+        <div className="mt-4">
+          <div role="status" className="rounded-lg border border-amber-200 bg-amber-50 p-4 text-xs leading-6 text-amber-900">
+            این سامانه پخش زنده را ضبط یا ذخیره نمی‌کند و برای وبینار فایل ضبط‌شده‌ای ساخته نمی‌شود. انتشار ضبط فقط پس از راه‌اندازی مسیر آپلود خصوصی و کنترل دسترسی ممکن خواهد بود.
+          </div>
         </div>
       </details>
     </div>
@@ -1155,6 +1520,7 @@ const DEFAULT_COURSE_LIVE: Omit<LiveEventConfig, "isOnline"> = {
   platform: "Zoom",
   status: "scheduled",
   certificateEnabled: false,
+  registrationOpen: true,
 };
 
 const DEFAULT_WORKSHOP_LIVE: LiveEventConfig = {
@@ -1162,12 +1528,30 @@ const DEFAULT_WORKSHOP_LIVE: LiveEventConfig = {
   isOnline: true,
   meetLink: "",
   webinarStream: { source: "camera", chatEnabled: true, qaEnabled: true },
+  instructorNameCustom: false,
+  instructorId: "artist-razieh-khairipour",
+  instructorName: "",
+  instructorPhoto: "",
+  hostCustom: false,
+  hostId: "",
+  hostNameFa: "",
+  hostPhoto: "",
+  hostNameCustom: false,
 };
 
 const DEFAULT_WEBINAR_LIVE: LiveEventConfig = {
   ...DEFAULT_COURSE_LIVE,
   isOnline: true,
   webinarStream: { source: "camera", chatEnabled: true, qaEnabled: true },
+  instructorNameCustom: false,
+  instructorId: "artist-razieh-khairipour",
+  instructorName: "",
+  instructorPhoto: "",
+  hostCustom: false,
+  hostId: "",
+  hostNameFa: "",
+  hostPhoto: "",
+  hostNameCustom: false,
 };
 
 const BLANK_BASE: Omit<EducationItem, "id" | "slug" | "type" | "liveEvent" | "videoFiles"> = {
@@ -1213,7 +1597,7 @@ function ItemDrawer({
   item: EducationItem | null;
   artists: Artist[];
   categories: Category[];
-  onSave: (item: EducationItem) => void;
+  onSave: (item: EducationItem, closeAfter?: boolean) => void;
   onClose: () => void;
   registeredCount: number;
   defaultType?: EducationType;
@@ -1254,14 +1638,22 @@ function ItemDrawer({
     }));
   };
 
-  const handleSave = () => {
+  const handleSave = (closeAfter = true) => {
     const slug = form.slug.trim() || makeSlug(form.title.fa || form.title.en);
-    onSave({
+    const saved: EducationItem = {
       ...form,
       slug,
       ...(form.liveEvent ? { liveEvent: { ...form.liveEvent, registeredCount } } : {}),
-    });
+    };
+    onSave(saved, closeAfter);
   };
+
+  const effectiveSlug = form.slug.trim() || makeSlug(form.title.fa || form.title.en);
+  const isLiveEvent = form.type === "webinar" || form.type === "workshop";
+  const isCameraMode = isLiveEvent
+    && form.liveEvent?.isOnline !== false
+    && (form.liveEvent?.webinarStream?.source ?? "camera") === "camera";
+  const broadcastReady = !isNew && isCameraMode;
 
   const tc = TYPE_COLORS[form.type];
 
@@ -1269,7 +1661,7 @@ function ItemDrawer({
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" dir="rtl">
       <div className="absolute inset-0 bg-black/40 backdrop-blur-[2px]" onClick={onClose} />
 
-      <div className="relative flex w-full max-w-2xl max-h-[92vh] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
+      <div className="relative flex w-full max-w-3xl max-h-[92vh] flex-col overflow-hidden rounded-2xl bg-white shadow-2xl">
         {/* Header — type-aware color accent */}
         <div className={cn(
           "flex shrink-0 items-center justify-between border-b border-border px-6 py-4 text-white rounded-t-2xl",
@@ -1297,6 +1689,21 @@ function ItemDrawer({
 
         {/* Scrollable body */}
         <div className="flex-1 overflow-y-auto p-6 space-y-5">
+
+          {/* Save-success banner when we just saved and stayed (for broadcast flow) */}
+          {!isNew && broadcastReady && (
+            <div className="flex items-start gap-2 rounded-xl border border-emerald-300 bg-emerald-50 p-3 text-sm text-emerald-800">
+              <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600 mt-0.5" />
+              <div>
+                <p className="font-semibold">
+                  {form.type === "webinar" ? "وبینار با موفقیت ذخیره شد" : "ورکشاپ با موفقیت ذخیره شد"}
+                </p>
+                <p className="mt-0.5 text-xs leading-5">
+                  اکنون می‌توانید از دکمهٔ قرمز «ورود به پخش از دوربین» وارد اتاق پخش زنده شوید.
+                </p>
+              </div>
+            </div>
+          )}
 
           {/* ── Type selector — hidden for new items (type locked to active panel) ── */}
           {!isNew ? (
@@ -1367,27 +1774,49 @@ function ItemDrawer({
             </p>
           </div>
 
-          <LocalizedField
-            label="عنوان"
-            value={form.title}
-            onChange={(v) => {
-              set("title", v);
-              if (isNew && !form.slug) set("slug", makeSlug(v.fa || v.en));
-            }}
-            required
-          />
-          <LocalizedField
-            label={form.type === "course" ? "خلاصه دوره" : form.type === "workshop" ? "خلاصه ورکشاپ" : "خلاصه وبینار"}
-            value={form.excerpt}
-            onChange={(v) => set("excerpt", v)}
-            textarea
-          />
-          <LocalizedField
-            label={form.type === "course" ? "توضیحات کامل دوره" : form.type === "workshop" ? "توضیحات ورکشاپ" : "توضیحات وبینار"}
-            value={form.body}
-            onChange={(v) => set("body", v)}
-            textarea
-          />
+          {form.type === "course" ? (
+            <>
+              <LocalizedField
+                label="عنوان"
+                value={form.title}
+                onChange={(v) => {
+                  set("title", v);
+                  if (isNew && !form.slug) set("slug", makeSlug(v.fa || v.en));
+                }}
+                required
+              />
+              <LocalizedField label="خلاصه دوره" value={form.excerpt} onChange={(v) => set("excerpt", v)} textarea />
+              <LocalizedField label="توضیحات کامل دوره" value={form.body} onChange={(v) => set("body", v)} textarea />
+            </>
+          ) : (
+            <>
+              {/* وبینار/ورکشاپ — فقط فارسی */}
+              <FaField
+                label="عنوان"
+                required
+                value={form.title.fa}
+                onChange={(v) => {
+                  set("title", { fa: v, en: form.title.en });
+                  if (isNew && !form.slug) set("slug", makeSlug(v));
+                }}
+                placeholder={form.type === "webinar" ? "عنوان وبینار…" : "عنوان ورکشاپ…"}
+              />
+              <FaField
+                label={form.type === "workshop" ? "خلاصه ورکشاپ" : "خلاصه وبینار"}
+                value={form.excerpt.fa}
+                onChange={(v) => set("excerpt", { fa: v, en: form.excerpt.en })}
+                textarea
+                placeholder="توضیح کوتاه یک‌پارگرافی…"
+              />
+              <FaField
+                label={form.type === "workshop" ? "توضیحات کامل ورکشاپ" : "توضیحات کامل وبینار"}
+                value={form.body.fa}
+                onChange={(v) => set("body", { fa: v, en: form.body.en })}
+                textarea
+                placeholder="توضیحات کامل، سرفصل‌ها، نیازمندی‌ها…"
+              />
+            </>
+          )}
 
           {/* Slug + Cover image */}
           <div className="grid gap-3 sm:grid-cols-2">
@@ -1401,30 +1830,40 @@ function ItemDrawer({
             </Field>
           </div>
 
-          {/* Author + Category */}
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label={form.type === "webinar" ? "مدرس / میزبان وبینار" : form.type === "workshop" ? "مدرس / مربی ورکشاپ" : "مدرس / استاد دوره"}>
-              <Select value={form.authorId} onChange={(e) => set("authorId", e.target.value)}>
-                <option value="">انتخاب کنید…</option>
-                {(form.type === "workshop" || form.type === "webinar") && (
-                  <option value="artist-razieh-khairipour">راضیه خیری پور</option>
-                )}
-                {form.type === "course" && artists
-                  .filter((a) => a.id !== "artist-razieh-khairipour")
-                  .map((a) => (
+          {/* Author + Category (course only — webinars/workshops use the new instructor/host pickers) */}
+          {form.type === "course" && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="مدرس / استاد دوره">
+                <Select value={form.authorId} onChange={(e) => set("authorId", e.target.value)}>
+                  <option value="">انتخاب کنید…</option>
+                  {artists.map((a) => (
                     <option key={a.id} value={a.id}>{t(a.name, "fa")}</option>
                   ))}
-              </Select>
-            </Field>
-            <Field label="دسته‌بندی">
-              <Select value={form.categoryId} onChange={(e) => set("categoryId", e.target.value)}>
-                <option value="">بدون دسته‌بندی</option>
-                {categories.map((c) => (
-                  <option key={c.id} value={c.id}>{t(c.name, "fa")}</option>
-                ))}
-              </Select>
-            </Field>
-          </div>
+                </Select>
+              </Field>
+              <Field label="دسته‌بندی">
+                <Select value={form.categoryId} onChange={(e) => set("categoryId", e.target.value)}>
+                  <option value="">بدون دسته‌بندی</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>{t(c.name, "fa")}</option>
+                  ))}
+                </Select>
+              </Field>
+            </div>
+          )}
+          {form.type !== "course" && (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="دسته‌بندی">
+                <Select value={form.categoryId} onChange={(e) => set("categoryId", e.target.value)}>
+                  <option value="">بدون دسته‌بندی</option>
+                  {categories.map((c) => (
+                    <option key={c.id} value={c.id}>{t(c.name, "fa")}</option>
+                  ))}
+                </Select>
+              </Field>
+              <div />
+            </div>
+          )}
 
           {/* Difficulty + Course-specific meta */}
           <div className="grid gap-3 sm:grid-cols-3">
@@ -1449,32 +1888,67 @@ function ItemDrawer({
             )}
           </div>
 
-          {/* Price */}
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label={form.type === "course" ? "قیمت دوره (تومان) — خالی = رایگان" : form.type === "workshop" ? "هزینه ثبت‌نام (تومان) — خالی = رایگان" : "هزینه شرکت در وبینار (تومان) — خالی = رایگان"}>
-              <Input type="number" min={0} dir="ltr" value={form.price?.fa ?? ""}
-                placeholder="0 = رایگان"
-                onChange={(e) => {
-                  const v = Number(e.target.value);
-                  set("price", v > 0 ? { fa: v, en: form.price?.en ?? 0 } : undefined);
-                }} />
-            </Field>
-            <Field label={form.type === "course" ? "قیمت دوره (USD) — خالی = رایگان" : form.type === "workshop" ? "هزینه ثبت‌نام (USD) — خالی = رایگان" : "هزینه شرکت (USD) — خالی = رایگان"}>
-              <Input type="number" min={0} dir="ltr" value={form.price?.en ?? ""}
-                placeholder="0 = free"
-                onChange={(e) => {
-                  const v = Number(e.target.value);
-                  set("price", v > 0 ? { fa: form.price?.fa ?? 0, en: v } : undefined);
-                }} />
-            </Field>
-          </div>
+          {/* Price — تومان برای وبینار/ورکشاپ */}
+          {form.type === "course" ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="قیمت دوره (تومان) — خالی = رایگان">
+                <Input type="number" min={0} dir="ltr" value={form.price?.fa ?? ""}
+                  placeholder="0 = رایگان"
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    set("price", v > 0 ? { fa: v, en: form.price?.en ?? 0 } : undefined);
+                  }} />
+              </Field>
+              <Field label="قیمت دوره (USD) — خالی = رایگان">
+                <Input type="number" min={0} dir="ltr" value={form.price?.en ?? ""}
+                  placeholder="0 = free"
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    set("price", v > 0 ? { fa: form.price?.fa ?? 0, en: v } : undefined);
+                  }} />
+              </Field>
+            </div>
+          ) : (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label={form.type === "workshop" ? "هزینه ثبت‌نام ورکشاپ (تومان) — خالی = رایگان" : "هزینه شرکت در وبینار (تومان) — خالی = رایگان"}>
+                <Input type="number" min={0} dir="ltr" value={form.price?.fa ?? ""}
+                  placeholder="0 = رایگان"
+                  onChange={(e) => {
+                    const v = Number(e.target.value);
+                    set("price", v > 0 ? { fa: v, en: 0 } : undefined);
+                  }} />
+              </Field>
+              <div className="flex items-end">
+                <div className="rounded-md border border-border bg-background-secondary px-3 py-2 text-xs text-muted w-full">
+                  قیمت به‌صورت تومان و برای کاربران ایرانی ثبت می‌شود.
+                </div>
+              </div>
+            </div>
+          )}
 
-          {/* Published at + Flags */}
-          <div className="grid gap-3 sm:grid-cols-2">
-            <Field label="تاریخ انتشار">
-              <Input type="date" dir="ltr" value={form.publishedAt?.slice(0, 10) ?? ""}
-                onChange={(e) => set("publishedAt", e.target.value)} />
-            </Field>
+          {/* Flags (no publishedAt here for webinars/workshops — moved into live-event box) */}
+          {form.type === "course" ? (
+            <div className="grid gap-3 sm:grid-cols-2">
+              <Field label="تاریخ انتشار">
+                <Input type="date" dir="ltr" value={form.publishedAt?.slice(0, 10) ?? ""}
+                  onChange={(e) => set("publishedAt", e.target.value)} />
+              </Field>
+              <Field label="ویژگی‌ها">
+                <div className="flex gap-4 items-center h-9">
+                  <label className="flex cursor-pointer items-center gap-2 text-sm">
+                    <input type="checkbox" className="h-4 w-4 accent-accent"
+                      checked={form.featured} onChange={(e) => set("featured", e.target.checked)} />
+                    <Star className="h-3.5 w-3.5 text-amber-500" /> منتخب
+                  </label>
+                  <label className="flex cursor-pointer items-center gap-2 text-sm">
+                    <input type="checkbox" className="h-4 w-4 accent-accent"
+                      checked={form.popular} onChange={(e) => set("popular", e.target.checked)} />
+                    <TrendingUp className="h-3.5 w-3.5 text-rose-500" /> محبوب
+                  </label>
+                </div>
+              </Field>
+            </div>
+          ) : (
             <Field label="ویژگی‌ها">
               <div className="flex gap-4 items-center h-9">
                 <label className="flex cursor-pointer items-center gap-2 text-sm">
@@ -1487,9 +1961,10 @@ function ItemDrawer({
                     checked={form.popular} onChange={(e) => set("popular", e.target.checked)} />
                   <TrendingUp className="h-3.5 w-3.5 text-rose-500" /> محبوب
                 </label>
+                <span className="mr-auto text-xs text-muted">تاریخ انتشار در کادر «تنظیمات وبینار زنده / زمان‌بندی» تنظیم می‌شود.</span>
               </div>
             </Field>
-          </div>
+          )}
 
           {/* ── دوره آموزشی: ساختار درس‌ها و فایل‌های خصوصی ── */}
           {form.type === "course" && (
@@ -1517,6 +1992,9 @@ function ItemDrawer({
               slug={form.slug}
               registeredCount={registeredCount}
               saved={!isNew}
+              artists={artists}
+              publishedAt={form.publishedAt ?? ""}
+              onPublishedAtChange={(v) => set("publishedAt", v)}
             />
           )}
 
@@ -1528,6 +2006,9 @@ function ItemDrawer({
               slug={form.slug}
               registeredCount={registeredCount}
               saved={!isNew}
+              artists={artists}
+              publishedAt={form.publishedAt ?? ""}
+              onPublishedAtChange={(v) => set("publishedAt", v)}
             />
           )}
         </div>
@@ -1535,7 +2016,30 @@ function ItemDrawer({
         {/* Footer */}
         <div className="flex shrink-0 items-center justify-end gap-3 border-t border-border bg-background-secondary rounded-b-2xl px-6 py-4">
           <Button variant="ghost" onClick={onClose}>انصراف</Button>
-          <Button onClick={handleSave}>
+          {isLiveEvent && isCameraMode && (
+            broadcastReady ? (
+              <Link
+                href={`/fa/academy/${effectiveSlug}/broadcast`}
+                target="_blank"
+                rel="noopener noreferrer"
+                className="inline-flex items-center gap-2 rounded-lg bg-rose-600 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-rose-700 transition-colors"
+              >
+                <Radio className="h-4 w-4" />
+                ورود به پخش از دوربین
+                <ExternalLink className="h-3.5 w-3.5 opacity-70" />
+              </Link>
+            ) : (
+              <button
+                type="button"
+                onClick={() => handleSave(false)}
+                className="inline-flex items-center gap-2 rounded-lg bg-emerald-600 px-4 py-2 text-sm font-bold text-white shadow-sm hover:bg-emerald-700 transition-colors"
+              >
+                <Camera className="h-4 w-4" />
+                {form.type === "workshop" ? "ذخیره و رفتن به پخش" : "ذخیره و رفتن به پخش"}
+              </button>
+            )
+          )}
+          <Button onClick={() => handleSave(true)}>
             {isNew ? "افزودن" : "ذخیره تغییرات"}
           </Button>
         </div>
@@ -1799,9 +2303,16 @@ export function AcademyManager({
     return list;
   }, [education, panel, filterStatus, search, statusNow]);
 
-  const handleSave = useCallback((saved: EducationItem) => {
+  const handleSave = useCallback((saved: EducationItem, closeAfter = true) => {
     const exists = education.find((e) => e.id === saved.id);
-    update({ education: exists ? education.map((e) => (e.id === saved.id ? saved : e)) : [...education, saved] });
+    const next = exists ? education.map((e) => (e.id === saved.id ? saved : e)) : [...education, saved];
+    update({ education: next });
+    // For newly created webinars/workshops, stay in edit mode so the "go to broadcast" button is visible.
+    if (!closeAfter) {
+      // Switch the drawer from "new" state to the actual saved item (so saved=true becomes true)
+      setEditItem(next.find((e) => e.id === saved.id) ?? saved);
+      return;
+    }
     setEditItem(null);
   }, [education, update]);
 

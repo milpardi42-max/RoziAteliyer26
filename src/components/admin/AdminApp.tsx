@@ -40,6 +40,7 @@ import {
   Zap,
 } from "lucide-react";
 import { LiveDashboard } from "@/components/admin/LiveDashboard";
+import { AdminPushControl } from "@/components/admin/AdminPushControl";
 import { HomeSectionsManager } from "@/components/admin/HomeSectionsManager";
 import { PatternsManager } from "@/components/admin/PatternsManager";
 import { ProductsManager } from "@/components/admin/ProductsManager";
@@ -59,9 +60,11 @@ import { ErrorState, Skeleton } from "@/components/ui/States";
 import { Badge } from "@/components/ui/Badge";
 import { SESSION_FETCH } from "@/lib/http";
 import { ADMIN_LOGIN_DISABLED } from "@/lib/admin-access";
+import { withCsrf } from "@/lib/security/csrf-client";
 import { cn, href, slugify, t } from "@/lib/utils";
 import type { AnnouncementBarConfig, AnnouncementBarDirection, AnnouncementBarKind, AnnouncementBarMotion, AnnouncementBarTransition, Banner, Category, EducationItem, HeroContent, HomeSectionKey, PortfolioHeroSettings, SeoMeta, SiteContent } from "@/lib/types";
 import { PortfolioHeroManager } from "@/components/admin/PortfolioHeroManager";
+import { MobileAdminNav } from "@/components/admin/MobileAdminNav";
 import { portfolioHero as defaultPortfolioHero } from "@/lib/data/seed";
 import type { Localized } from "@/lib/i18n/types";
 
@@ -116,7 +119,7 @@ class UnauthorizedError extends Error {
 }
 
 async function adminFetch<T>(init?: RequestInit): Promise<T> {
-  const r = await fetch("/api/admin/content", { ...SESSION_FETCH, ...init });
+  const r = await fetch("/api/admin/content", { ...SESSION_FETCH, ...withCsrf(init ?? {}) });
   if (r.status === 401) throw new UnauthorizedError();
   if (!r.ok) throw new Error(`admin/content → ${r.status}`);
   return (await r.json()) as T;
@@ -202,6 +205,14 @@ export function AdminApp() {
   const [loadError, setLoadError] = useState<"unauthorized" | "error" | null>(null);
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [pendingArtistCount, setPendingArtistCount] = useState(0);
+
+  // PWA shortcuts can open a specific admin section via ?section=…
+  useEffect(() => {
+    const requested = new URLSearchParams(window.location.search).get("section");
+    if (!requested || requested === "marketplace") return;
+    const item = NAV_GROUPS.flatMap((group) => group.items).find((entry) => entry.id === requested);
+    if (item) setSection(item.id);
+  }, []);
 
   const load = useCallback(async (signal?: AbortSignal) => {
     setLoadError(null);
@@ -321,7 +332,7 @@ export function AdminApp() {
       {/* پوشش پس‌زمینه (موبایل) */}
       {sidebarOpen && (
         <div
-          className="fixed inset-0 z-30 bg-black/40 lg:hidden"
+          className="fixed inset-0 z-40 bg-black/40 lg:hidden"
           onClick={() => setSidebarOpen(false)}
         />
       )}
@@ -329,7 +340,7 @@ export function AdminApp() {
       {/* ── نوار کناری ── */}
       <aside
         className={cn(
-          "fixed inset-y-0 right-0 z-40 flex w-64 flex-col bg-[#1e2230] text-white transition-transform duration-300",
+          "fixed inset-y-0 right-0 z-50 flex w-64 max-w-[85vw] flex-col bg-[#1e2230] pb-[env(safe-area-inset-bottom)] text-white transition-transform duration-300",
           sidebarOpen ? "translate-x-0" : "translate-x-full lg:translate-x-0",
         )}
       >
@@ -357,7 +368,7 @@ export function AdminApp() {
               {group.items.map((item) => {
                 const active = section === item.id;
                 const classes = cn(
-                  "flex w-full items-center gap-3 rounded-md px-3 py-2 text-sm transition-colors",
+                  "flex w-full items-center gap-3 rounded-md px-3 py-2.5 min-h-[44px] text-sm transition-colors",
                   active
                     ? "bg-accent/90 text-white font-medium"
                     : "text-white/65 hover:bg-white/[0.08] hover:text-white",
@@ -427,10 +438,11 @@ export function AdminApp() {
       {/* ── ناحیه محتوای اصلی ── */}
       <div className="flex min-w-0 flex-1 flex-col lg:mr-64">
         {/* نوار بالا */}
-        <header className="sticky top-0 z-20 flex h-14 items-center gap-3 border-b border-[#e2e6ea] bg-white px-4 md:px-6">
+        <header className="sticky top-0 z-20 flex min-h-[calc(3.5rem+env(safe-area-inset-top))] items-center gap-3 border-b border-[#e2e6ea] bg-white px-4 pt-[env(safe-area-inset-top)] md:px-6">
           <button
-            className="flex h-8 w-8 items-center justify-center rounded-md text-foreground-secondary hover:bg-background-secondary lg:hidden"
+            className="flex h-10 min-h-[44px] w-10 items-center justify-center rounded-md text-foreground-secondary hover:bg-background-secondary lg:hidden"
             onClick={() => setSidebarOpen(true)}
+            aria-label="باز کردن منو"
           >
             <Menu className="h-5 w-5" />
           </button>
@@ -461,18 +473,18 @@ export function AdminApp() {
               </span>
             )}
 
-            <button className="flex h-8 w-8 items-center justify-center rounded-md text-foreground-secondary hover:bg-background-secondary">
+            <button className="hidden h-8 w-8 items-center justify-center rounded-md text-foreground-secondary hover:bg-background-secondary sm:flex">
               <Bell className="h-4 w-4" />
             </button>
 
-            <button className="flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs text-foreground-secondary hover:bg-background-secondary">
+            <button className="hidden h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs text-foreground-secondary hover:bg-background-secondary md:flex">
               <Search className="h-3.5 w-3.5" />
               <span className="hidden sm:inline">جستجو…</span>
             </button>
 
             <button
               onClick={reset}
-              className="flex h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs text-foreground-secondary hover:bg-background-secondary"
+              className="hidden h-8 items-center gap-1.5 rounded-md border border-border px-2.5 text-xs text-foreground-secondary hover:bg-background-secondary md:flex"
               title="بازگرداندن به محتوای اولیه"
             >
               <RotateCcw className="h-3.5 w-3.5" />
@@ -482,15 +494,17 @@ export function AdminApp() {
             <button
               onClick={() => { void save().catch(() => undefined); }}
               disabled={!dirty || status === "saving"}
+              aria-label={status === "saving" ? "در حال ذخیره تغییرات" : "ذخیره تغییرات"}
+              aria-busy={status === "saving"}
               className={cn(
-                "flex h-8 items-center gap-1.5 rounded-md px-3 text-xs font-semibold transition-colors",
+                "flex h-9 min-h-[44px] items-center gap-1.5 rounded-md px-3 text-xs font-semibold transition-colors",
                 dirty && status !== "saving"
                   ? "bg-[#1e2230] text-white hover:bg-[#2a3045]"
                   : "cursor-not-allowed bg-[#1e2230]/30 text-white/50",
               )}
             >
-              <Save className="h-3.5 w-3.5" />
-              {status === "saving" ? "در حال ذخیره…" : "ذخیره"}
+              <Save className="h-4 w-4" />
+              <span className="hidden xs:inline">{status === "saving" ? "…" : "ذخیره"}</span>
             </button>
           </div>
         </header>
@@ -529,7 +543,12 @@ export function AdminApp() {
             </div>
           ) : (
             <div key={section} className="anim-fade-up">
-              {section === "dashboard" && <LiveDashboard data={data} setSection={setSection} />}
+              {section === "dashboard" && (
+                <>
+                  <AdminPushControl />
+                  <LiveDashboard data={data} setSection={setSection} />
+                </>
+              )}
               {section === "financial" && (
                 <FinancialManager data={data} update={update} onSave={save} />
               )}
@@ -586,6 +605,20 @@ export function AdminApp() {
             </div>
           )}
         </main>
+
+        {/* ── Bottom navigation for mobile (PWA) ── */}
+        <MobileAdminNav
+          activeSection={section}
+          onSelect={(id) => {
+            setSection(id as Section);
+            window.scrollTo({ top: 0, behavior: "smooth" });
+          }}
+          onOpenMenu={() => setSidebarOpen(true)}
+          dirty={dirty}
+          saving={status === "saving"}
+          onSave={() => { void save().catch(() => undefined); }}
+          pendingCount={pendingArtistCount}
+        />
       </div>
     </div>
   );

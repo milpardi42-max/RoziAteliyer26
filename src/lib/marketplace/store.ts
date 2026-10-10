@@ -32,6 +32,7 @@ export const KEYS = {
   counters: "rosie-atelier:mk:counters",
   referrals: "rosie-atelier:mk:referrals",
   settings: "rosie-atelier:mk:settings",
+  adminPush: "rosie-atelier:mk:admin-push-subscriptions",
 } as const;
 
 export type CollectionKey = (typeof KEYS)[keyof typeof KEYS];

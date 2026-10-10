@@ -109,15 +109,17 @@ export function LiveEventBanner({ event, registeredCount: actualRegisteredCount 
       )}
     >
       {/* Background image */}
-      <div className="absolute inset-0 opacity-10">
-        <Image
-          src={event.image}
-          alt=""
-          fill
-          sizes="100vw"
-          className="object-cover"
-        />
-      </div>
+      {event.image ? (
+        <div className="absolute inset-0 opacity-10">
+          <Image
+            src={event.image}
+            alt=""
+            fill
+            sizes="100vw"
+            className="object-cover"
+          />
+        </div>
+      ) : null}
 
       <div className="relative z-10 grid gap-6 p-6 md:grid-cols-[1fr_auto] md:items-center md:p-8">
         {/* Left: event info */}

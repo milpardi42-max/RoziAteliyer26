@@ -70,15 +70,78 @@ function publicLiveEvent(event: LiveEventConfig | undefined): Omit<LiveEventConf
   return { ...safe, status: effectiveLiveStatus(event) ?? event.status };
 }
 
+function resolvePerson(
+  site: SiteContent,
+  cfg: {
+    custom?: boolean;
+    selectedId?: string;
+    customName?: string;
+    photoUrl?: string;
+    /** legacy Localized hostName */
+    legacyName?: { fa?: string; en?: string } | null;
+    legacyEnabled?: boolean;
+  },
+  fallbackArtist?: Artist,
+): { name: string; photo?: string; artist: Artist | null } {
+  if (cfg.custom) {
+    const name = (cfg.customName || cfg.legacyName?.fa || "").trim();
+    return { name, photo: cfg.photoUrl || undefined, artist: null };
+  }
+  const id = cfg.selectedId;
+  const artist = id ? site.artists.find((a) => a.id === id) : fallbackArtist;
+  if (artist) return { name: artist.name.fa, photo: artist.avatar, artist };
+  const fallbackName = cfg.legacyEnabled && cfg.legacyName?.fa ? cfg.legacyName.fa : "";
+  return { name: fallbackName, photo: cfg.photoUrl || undefined, artist: null };
+}
+
 export function enrichEducation(site: SiteContent, e: EducationItem) {
-  const author = e.type === "workshop" || e.type === "webinar"
+  const defaultArtistRaw = e.type === "workshop" || e.type === "webinar"
     ? site.artists.find((artist) => artist.id === "artist-razieh-khairipour") ?? ACADEMY_HOST
     : artistOf(site, e.authorId);
+  const defaultArtist: Artist | undefined = defaultArtistRaw ?? undefined;
+
+  const live = e.liveEvent;
+  const instructor = live
+    ? resolvePerson(
+        site,
+        {
+          custom: !!live.instructorNameCustom,
+          selectedId: live.instructorId,
+          customName: live.instructorName,
+          photoUrl: live.instructorPhoto,
+          legacyName: live.hostName,
+          legacyEnabled: live.hostNameCustom,
+        },
+        defaultArtist,
+      )
+    : null;
+
+  const host = live
+    ? resolvePerson(
+        site,
+        {
+          custom: !!live.hostCustom,
+          selectedId: live.hostId,
+          customName: live.hostNameFa,
+          photoUrl: live.hostPhoto,
+        },
+      )
+    : null;
+
+  // For backward compatibility, compute author display name using new instructor info when available.
+  const author: Artist | null = (() => {
+    if (e.type === "course") return defaultArtist ?? null;
+    if (instructor?.artist) return instructor.artist;
+    return defaultArtist ?? null;
+  })();
+
   return {
     ...e,
     videoFiles: e.videoFiles?.map(publicVideoFile),
     liveEvent: publicLiveEvent(e.liveEvent),
     author,
+    instructor,
+    host,
     category: categoryOf(site, e.categoryId),
     patterns: e.patternIds.map((id) => patternById(site, id)).filter(Boolean) as Pattern[],
     products: e.productIds.map((id) => productById(site, id)).filter(Boolean) as Product[],

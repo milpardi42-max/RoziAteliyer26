@@ -1,10 +1,15 @@
 import type { SessionUser } from "./session";
 
 /**
- * TEMPORARY MODE: the admin panel and admin APIs are intentionally open to everyone.
- * Set this to false to restore the normal signed-admin-session requirement.
+ * Admin bypass. By default the admin panel requires a signed-in admin session.
+ *
+ *   ROSIE_ADMIN_BYPASS=1   — opens the admin panel without authentication.
+ *                            ONLY use for local development / Stackblitz preview,
+ *                            NEVER in production. When NODE_ENV=production this
+ *                            flag is FORCIBLY IGNORED regardless of the env var.
  */
-export const ADMIN_LOGIN_DISABLED = true;
+export const ADMIN_LOGIN_DISABLED =
+  process.env.NODE_ENV !== "production" && process.env.ROSIE_ADMIN_BYPASS === "1";
 
 export const TEMPORARY_ADMIN_SESSION: SessionUser = {
   id: "temporary-admin",

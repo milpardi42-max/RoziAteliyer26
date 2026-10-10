@@ -8,6 +8,7 @@ import { zarinpalProvider } from "./zarinpal";
 import { isSandboxAuthority } from "./sandbox";
 import type { PaymentInitResult, PaymentProvider, PaymentVerifyResult } from "./types";
 import type { ChargeAmount, MarketplaceOrder, PaymentAttempt, PaymentProviderId } from "../types";
+import { sendAdminPushSafely } from "@/lib/admin-push";
 
 /**
  * Payment orchestration.
@@ -289,6 +290,15 @@ export async function completePayment(
     value: order.total,
     meta: { orderId: order.id, provider: providerId, reference, sandbox: settled.verification.sandbox ? "1" : "0" },
   });
+
+  if (fulfillment.ok && !fulfillment.alreadyFulfilled) {
+    await sendAdminPushSafely({
+      title: "پرداخت موفق جدید",
+      body: `پرداخت سفارش ${order.id} تأیید شد. برای مشاهده وارد فروشگاه مدیریت شوید.`,
+      url: "/admin/fa/marketplace",
+      tag: `purchase-${order.id}`,
+    });
+  }
 
   return {
     ok: true,

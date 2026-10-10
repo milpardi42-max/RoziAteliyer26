@@ -4,6 +4,7 @@ import { createContext, useCallback, useContext, useEffect, useMemo, useRef, use
 import type { Locale } from "@/lib/i18n/types";
 import { dictionaries, type Dictionary } from "@/lib/i18n/dictionary";
 import { SESSION_FETCH } from "@/lib/http";
+import { withCsrf } from "@/lib/security/csrf-client";
 
 /* ------------------------------------------------------------------ */
 /* Locale                                                               */
@@ -268,12 +269,12 @@ export function AppProviders({ locale, children }: { locale: Locale; children: R
       login: async (email, password) => {
         if (!email.includes("@") || password.length < 4) return { ok: false, error: "invalid" };
         try {
-          const r = await fetch("/api/auth/login", {
+          const r = await fetch("/api/auth/login", withCsrf({
             ...SESSION_FETCH,
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ email, password }),
-          });
+          }));
           const d = (await r.json()) as { ok: boolean; user?: User; error?: string };
           if (r.ok && d.ok && d.user) {
             commitServerUser(d.user);
@@ -287,12 +288,12 @@ export function AppProviders({ locale, children }: { locale: Locale; children: R
       signup: async (name, email, password, role = "user", extra) => {
         if (!name || !email.includes("@") || password.length < 6) return { ok: false, error: "invalid" };
         try {
-          const r = await fetch("/api/auth/signup", {
+          const r = await fetch("/api/auth/signup", withCsrf({
             ...SESSION_FETCH,
             method: "POST",
             headers: { "content-type": "application/json" },
             body: JSON.stringify({ name, email, password, role, ...extra }),
-          });
+          }));
           const d = (await r.json()) as { ok: boolean; user?: User; error?: string };
           if (r.ok && d.ok && d.user) {
             commitServerUser(d.user);
@@ -305,7 +306,7 @@ export function AppProviders({ locale, children }: { locale: Locale; children: R
       },
       logout: () => {
         commitServerUser(null);
-        fetch("/api/auth/logout", { ...SESSION_FETCH, method: "POST" }).catch(() => undefined);
+        fetch("/api/auth/logout", withCsrf({ ...SESSION_FETCH, method: "POST" })).catch(() => undefined);
       },
     }),
     [user, serverUser, commitServerUser],

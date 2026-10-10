@@ -5,20 +5,23 @@ import Link from "next/link";
 import { useState } from "react";
 import {
   BookOpen,
-  Play,
-  Users,
   Calendar,
-  Clock,
-  Signal,
-  ChevronDown,
   CheckCircle2,
-  Video,
-  Layers,
+  ChevronDown,
+  Clock,
+  Film,
   Filter,
+  Globe,
+  Layers,
+  Mic2,
+  Play,
+  Radio,
+  Signal,
+  Users,
+  Video,
+  Wifi,
   X,
   Zap,
-  Globe,
-  Wifi,
 } from "lucide-react";
 import { cn, faNum, formatDuration, href, t } from "@/lib/utils";
 import { Button } from "@/components/ui/Button";
@@ -140,7 +143,7 @@ function EnrollModal({
         {/* Header: the course's own preview video when the panel has one */}
         <div className="relative h-40 overflow-hidden bg-[#0f141c]">
           {previewVideoUrl && !previewVideoFailed ? (
-            <video src={previewVideoUrl} poster={item.image} muted loop autoPlay playsInline preload="metadata" onError={() => setPreviewVideoFailed(true)} className="absolute inset-0 h-full w-full object-cover opacity-80" />
+            <video src={previewVideoUrl} poster={item.image || undefined} muted loop autoPlay playsInline preload="metadata" onError={() => setPreviewVideoFailed(true)} className="absolute inset-0 h-full w-full object-cover opacity-80" />
           ) : (
             <Image src={item.image} alt="" fill sizes="600px" className="object-cover opacity-60" />
           )}
@@ -270,13 +273,19 @@ function CourseCard({
     <article className="group flex flex-col overflow-hidden rounded-xl border border-border bg-surface transition-all duration-300 hover:-translate-y-1 hover:shadow-medium">
       {/* Thumbnail */}
       <Link href={url} className="relative block aspect-[16/9] overflow-hidden bg-background-secondary">
-        <Image
-          src={item.image}
-          alt={t(item.title, locale)}
-          fill
-          sizes="(max-width:640px) 100vw, (max-width:1024px) 50vw, 33vw"
-          className="img-zoom object-cover"
-        />
+        {item.image ? (
+          <Image
+            src={item.image}
+            alt={t(item.title, locale)}
+            fill
+            sizes="(max-width:640px) 100vw, (max-width:1024px) 50vw, 33vw"
+            className="img-zoom object-cover"
+          />
+        ) : (
+          <div className="flex h-full w-full items-center justify-center text-muted">
+            {item.type === "course" ? <Film className="h-10 w-10" /> : item.type === "workshop" ? <Mic2 className="h-10 w-10" /> : <Radio className="h-10 w-10" />}
+          </div>
+        )}
         <div className="absolute inset-0 bg-gradient-to-t from-black/40 to-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
         <div className="absolute start-3 top-3">
           <span className={cn("inline-flex items-center gap-1.5 rounded-full px-3 py-1 text-caption font-medium backdrop-blur-sm", typeColors[item.type] ?? typeColors.course)}>
@@ -407,7 +416,13 @@ function EventRow({
     <Reveal>
       <div className="group flex flex-col gap-5 overflow-hidden rounded-xl border border-border bg-surface p-5 transition-shadow hover:shadow-medium sm:flex-row sm:items-center">
         <Link href={url} className="relative h-28 w-full shrink-0 overflow-hidden rounded-lg bg-background-secondary sm:h-24 sm:w-36">
-          <Image src={item.image} alt="" fill sizes="144px" className="img-zoom object-cover" />
+          {item.image ? (
+            <Image src={item.image} alt="" fill sizes="144px" className="img-zoom object-cover" />
+          ) : (
+            <div className="flex h-full w-full items-center justify-center text-muted">
+              {item.type === "course" ? <Film className="h-6 w-6" /> : item.type === "workshop" ? <Mic2 className="h-6 w-6" /> : <Radio className="h-6 w-6" />}
+            </div>
+          )}
         </Link>
         <div className="flex min-w-0 flex-1 flex-col gap-1.5">
           <div className="flex flex-wrap items-center gap-2">

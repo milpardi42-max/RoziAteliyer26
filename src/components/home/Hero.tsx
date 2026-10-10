@@ -142,7 +142,7 @@ export function Hero({ hero, patterns, stats }: Props) {
       {/* media */}
       <div ref={mediaRef} className="absolute inset-0 will-change-transform scale-[1.06]">
         {hero.video && !videoFailed ? (
-          <video src={hero.video} poster={hero.image} autoPlay muted loop playsInline preload="metadata" onError={() => setFailedVideoUrl(hero.video ?? null)} className="h-full w-full object-cover" />
+          <video src={hero.video} poster={hero.image || undefined} autoPlay muted loop playsInline preload="metadata" onError={() => setFailedVideoUrl(hero.video ?? null)} className="h-full w-full object-cover" />
         ) : slideImages ? (
           slideImages.map((src, i) => (
             <Image key={src} src={src} alt="" fill priority={i <= 1} quality={100}

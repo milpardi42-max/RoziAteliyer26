@@ -1,10 +1,12 @@
 import { NextResponse } from "next/server";
 import { createOrder, getOrdersByUser, getOrdersByEmail } from "@/lib/data/orders";
+import { sendAdminPushSafely } from "@/lib/admin-push";
 import { getSession } from "@/lib/auth";
 import { withNoStore } from "@/lib/http";
 import type { OrderLine } from "@/lib/data/orders";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 /** POST /api/orders — place a new order */
 export async function POST(req: Request) {
@@ -39,6 +41,12 @@ export async function POST(req: Request) {
       postal: body.postal ?? "",
       lines: body.lines,
       total,
+    });
+    await sendAdminPushSafely({
+      title: "سفارش جدید فروشگاه",
+      body: `سفارش ${order.id} ثبت شد؛ وضعیت آن را در پنل مدیریت بررسی کنید.`,
+      url: "/admin/fa?section=dashboard",
+      tag: `shop-order-${order.id}`,
     });
     return NextResponse.json({ ok: true, orderId: order.id }, withNoStore());
   } catch {

@@ -298,7 +298,7 @@ export function AdminConsole({ locale }: { locale: "fa" | "en" }) {
   ];
 
   return (
-    <div>
+    <div className="pt-[env(safe-area-inset-top)]">
       <div className="flex flex-wrap gap-2 border-b border-border pb-3">
         {VIEWS.map((entry) => {
           const Icon = entry.icon;

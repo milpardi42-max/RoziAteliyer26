@@ -4,8 +4,10 @@ import { clientIp, recordAttempt, tooManyAttempts } from "@/lib/rate-limit";
 import { fail, json, readJson } from "@/lib/marketplace/guard";
 import { queueMessage } from "@/lib/marketplace/email";
 import { absoluteUrl } from "@/lib/marketplace/config";
+import { sendAdminPushSafely } from "@/lib/admin-push";
 
 export const dynamic = "force-dynamic";
+export const runtime = "nodejs";
 
 /**
  * POST /api/marketplace/apply
@@ -57,6 +59,13 @@ export async function POST(request: Request) {
       ${body?.priceFa || body?.priceEn ? `<p><b>${locale === "fa" ? "قیمت پیشنهادی" : "Proposed price"}:</b> ${body.priceFa ?? 0} تومان · $${body.priceEn ?? 0}</p>` : ""}
       <p style="white-space:pre-wrap">${(body?.message ?? "").slice(0, 2000)}</p>
     </div>`,
+  });
+
+  await sendAdminPushSafely({
+    title: "درخواست همکاری تازه",
+    body: "یک هنرمند درخواست همکاری فرستاد؛ برای بررسی وارد صف فروشگاه شوید.",
+    url: "/admin/fa/marketplace",
+    tag: `artist-application-${Date.now()}`,
   });
 
   /* Acknowledge the applicant too — people trust the flow more when it answers. */

@@ -67,15 +67,15 @@ export function AcademyHeroPreview({
 
   return (
     <div className={cn("group/preview relative flex min-h-[420px] flex-col overflow-hidden rounded-2xl border border-white/10 shadow-elevated", className)}>
-      {failed ? (
+      {failed && poster ? (
         // eslint-disable-next-line @next/next/no-img-element
         <img src={poster} alt="" className="absolute inset-0 h-full w-full object-cover brightness-75" />
-      ) : (
+      ) : src ? (
         <video
           ref={ref}
           className="absolute inset-0 h-full w-full object-cover brightness-[0.78]"
           src={src}
-          poster={poster}
+          poster={poster || undefined}
           muted
           loop
           playsInline
@@ -83,7 +83,10 @@ export function AcademyHeroPreview({
           preload="metadata"
           onError={() => setFailed(true)}
         />
-      )}
+      ) : poster ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img src={poster} alt="" className="absolute inset-0 h-full w-full object-cover brightness-75" />
+      ) : null}
       <div className="pointer-events-none absolute inset-0 bg-gradient-to-t from-[#0c1018]/95 via-[#0c1018]/30 to-transparent" />
 
       {/* Play / pause */}
