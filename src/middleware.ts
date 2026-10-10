@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from "next/server";
 import { ADMIN_LOGIN_DISABLED } from "@/lib/admin-access";
 import { DEFAULT_LOCALE, LOCALES } from "@/lib/i18n/types";
 import { readSessionToken, SESSION_COOKIE } from "@/lib/session";
-import { applySecurityHeaders } from "@/lib/security/headers";
+import { applySecurityHeaders, createContentSecurityPolicy } from "@/lib/security/headers";
 import { ensureCsrfToken } from "@/lib/security/csrf";
 
 function isOwnerEmail(email: string): boolean {
@@ -11,12 +11,23 @@ function isOwnerEmail(email: string): boolean {
   return email.toLowerCase() === ownerEmail;
 }
 
+function createNonce(): string {
+  const bytes = crypto.getRandomValues(new Uint8Array(16));
+  let binary = "";
+  for (const byte of bytes) binary += String.fromCharCode(byte);
+  return btoa(binary);
+}
+
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl;
+  const nonce = createNonce();
 
-  // Start with a normal next() response, then layer security headers + CSRF.
-  let res = NextResponse.next();
-  res = applySecurityHeaders(req, res);
+  // Next.js reads the forwarded CSP nonce and attaches it to its streamed RSC and hydration scripts.
+  const requestHeaders = new Headers(req.headers);
+  requestHeaders.set("x-nonce", nonce);
+  requestHeaders.set("Content-Security-Policy", createContentSecurityPolicy(req, nonce));
+  let res = NextResponse.next({ request: { headers: requestHeaders } });
+  res = applySecurityHeaders(req, res, nonce);
   ensureCsrfToken(req, res);
 
   /* -------- مسیرهای پنل ادمین (/admin/[locale]/) -------- */
@@ -30,7 +41,7 @@ export async function middleware(req: NextRequest) {
       if (rest === "/login" || rest === "/login/") {
         const panelUrl = req.nextUrl.clone();
         panelUrl.pathname = `/admin/${adminMatch[1]}`;
-        return applySecurityHeaders(req, NextResponse.redirect(panelUrl));
+        return applySecurityHeaders(req, NextResponse.redirect(panelUrl), nonce);
       }
       return res;
     }
@@ -47,7 +58,7 @@ export async function middleware(req: NextRequest) {
       loginUrl.pathname = `/admin/${locale}/login`;
       loginUrl.search = "";
       loginUrl.searchParams.set("next", `${req.nextUrl.pathname}${req.nextUrl.search}`);
-      return applySecurityHeaders(req, NextResponse.redirect(loginUrl));
+      return applySecurityHeaders(req, NextResponse.redirect(loginUrl), nonce);
     }
     return res;
   }
@@ -59,7 +70,7 @@ export async function middleware(req: NextRequest) {
     const locale = LOCALES.includes(cookie as never) ? cookie : DEFAULT_LOCALE;
     const url = req.nextUrl.clone();
     url.pathname = `/${locale}${pathname === "/" ? "" : pathname}`;
-    return applySecurityHeaders(req, NextResponse.redirect(url));
+    return applySecurityHeaders(req, NextResponse.redirect(url), nonce);
   }
 
   /* -------- Protected routes (سایت اصلی) -------- */
@@ -83,7 +94,7 @@ export async function middleware(req: NextRequest) {
       const loginUrl = req.nextUrl.clone();
       loginUrl.pathname = `/${segments[0]}/login`;
       loginUrl.searchParams.set("next", pathname);
-      return applySecurityHeaders(req, NextResponse.redirect(loginUrl));
+      return applySecurityHeaders(req, NextResponse.redirect(loginUrl), nonce);
     }
   }
 
@@ -95,7 +106,7 @@ export async function middleware(req: NextRequest) {
       const loginUrl = req.nextUrl.clone();
       loginUrl.pathname = `/${segments[0]}/login`;
       loginUrl.searchParams.set("next", pathname);
-      return applySecurityHeaders(req, NextResponse.redirect(loginUrl));
+      return applySecurityHeaders(req, NextResponse.redirect(loginUrl), nonce);
     }
   }
 

@@ -15,6 +15,7 @@ import {
 import { dictionaries } from "@/lib/i18n/dictionary";
 import { LOCALES, type Locale } from "@/lib/i18n/types";
 import { href, t } from "@/lib/utils";
+import { getCspNonce } from "@/lib/security/nonce";
 
 type Props = { params: Promise<{ locale: Locale; slug: string }> };
 
@@ -67,6 +68,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function ArtistPage({ params }: Props) {
   const { locale, slug } = await params;
+  const nonce = await getCspNonce();
   const content = await getSite();
   const site = {
     ...content,
@@ -110,6 +112,7 @@ export default async function ArtistPage({ params }: Props) {
   return (
     <article className="pt-[calc(var(--announce-h,0px)+var(--header-h))]">
       <script
+        nonce={nonce}
         type="application/ld+json"
         dangerouslySetInnerHTML={{
           __html: JSON.stringify(jsonLd).replace(/</g, "\\u003c"),

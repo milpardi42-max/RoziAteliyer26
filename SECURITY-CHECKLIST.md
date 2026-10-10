@@ -9,8 +9,8 @@
 ### هدرهای امنیتی (middleware)
 - ✅ **Content-Security-Policy** سخت‌گیرانه در لایهٔ Edge:
   - `default-src 'self'`
-  - `script-src 'self' 'unsafe-inline' 'strict-dynamic' https:` — اجازه اسکریپت‌های نکست و استاتیک میزبان، بدون `'unsafe-eval'`
-  - `style-src` شامل `'unsafe-inline'` (لازمهٔ CSS-in-JS نکست) و فونت‌های گوگل
+  - `script-src 'self' 'nonce-<random per request>' 'strict-dynamic'` — nonce به request و response می‌رسد تا Next.js اسکریپت‌های RSC/hydration را nonce کند؛ بدون `'unsafe-inline'` و `'unsafe-eval'`
+  - `style-src` شامل `'unsafe-inline'` برای style props/CSS variables و فونت‌های گوگل
   - `object-src 'none'`, `base-uri 'self'`, `form-action 'self'`
   - `frame-ancestors 'none'` در حالت عادی (جلوگیری از clickjacking)
   - `img-src`/`media-src` شامل `blob:` و `data:` و `https:` (برای HLS استریم و عکس‌های آپلودی)

@@ -24,6 +24,7 @@ import { AcademyClient, type AcademyClientItem } from "./AcademyClient";
 import { AcademyHeroPreview } from "@/components/academy/AcademyHeroPreview";
 import { VideoGrid, type AcademyVideoEntry } from "@/components/academy/VideoGrid";
 import { SiteContentBanner } from "@/components/layout/SiteContentBanner";
+import { getCspNonce } from "@/lib/security/nonce";
 
 export const dynamic = "force-dynamic";
 
@@ -52,6 +53,7 @@ export default async function AcademyPage({
   searchParams: Promise<{ category?: string }>;
 }) {
   const [{ locale }, query] = await Promise.all([params, searchParams]);
+  const nonce = await getCspNonce();
   const site = await getSite();
   const d = dictionaries[locale];
   const isFA = locale === "fa";
@@ -232,7 +234,7 @@ export default async function AcademyPage({
 
   return (
     <>
-      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
+      <script nonce={nonce} type="application/ld+json" dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }} />
       {academyBanners.map((banner) => <SiteContentBanner key={banner.id} banner={banner} locale={locale} />)}
 
       {/* ── Hero ──────────────────────────────────────────────── */}

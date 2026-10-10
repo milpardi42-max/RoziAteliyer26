@@ -5,6 +5,7 @@ import { AppProviders } from "@/components/providers/AppProviders";
 import { PwaRegister } from "@/components/pwa/PwaRegister";
 import { PwaInstallPrompt } from "@/components/pwa/PwaInstallPrompt";
 import { LOCALES, type Locale } from "@/lib/i18n/types";
+import { getCspNonce } from "@/lib/security/nonce";
 
 export const metadata: Metadata = {
   robots: { index: false },
@@ -45,13 +46,14 @@ export default async function AdminLocaleLayout({
   params: Promise<{ locale: string }>;
 }) {
   const { locale: raw } = await params;
+  const nonce = await getCspNonce();
   if (!LOCALES.includes(raw as Locale)) notFound();
   const locale = raw as Locale;
 
   return (
     <html lang="fa" dir="rtl" suppressHydrationWarning>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: themeScript }} />
         <link
           rel="preload"
           href="/fonts/iransanse-web/IRANSansWeb.woff2"

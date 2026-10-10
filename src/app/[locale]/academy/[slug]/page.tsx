@@ -23,6 +23,7 @@ import type { EnrichedEducation } from "@/lib/data/enrich";
 import { dictionaries } from "@/lib/i18n/dictionary";
 import { LOCALES, type Locale } from "@/lib/i18n/types";
 import { faNum, formatDuration, formatPrice, href, t } from "@/lib/utils";
+import { getCspNonce } from "@/lib/security/nonce";
 
 type Props = { params: Promise<{ locale: Locale; slug: string }> };
 
@@ -62,6 +63,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
 export default async function EducationDetail({ params }: Props) {
   const { locale, slug } = await params;
+  const nonce = await getCspNonce();
   const site = await getSite();
   const raw = site.education.find((x) => x.slug === slug);
   if (!raw) notFound();
@@ -172,6 +174,7 @@ export default async function EducationDetail({ params }: Props) {
     <article>
       {/* JSON-LD */}
       <script
+        nonce={nonce}
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
       />

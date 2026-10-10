@@ -13,6 +13,7 @@ import { AnnouncementBarServer } from "@/components/layout/AnnouncementBarServer
 import { getNavData } from "@/lib/data/nav";
 import { LOCALES, type Locale } from "@/lib/i18n/types";
 import { dictionaries } from "@/lib/i18n/dictionary";
+import { getCspNonce } from "@/lib/security/nonce";
 
 export const dynamic = "force-dynamic";
 
@@ -51,6 +52,7 @@ const themeScript = `(function(){try{var t=localStorage.getItem('ra-theme');if(t
 
 export default async function LocaleLayout({ children, params }: { children: React.ReactNode; params: Promise<{ locale: string }> }) {
   const { locale: raw } = await params;
+  const nonce = await getCspNonce();
   if (!LOCALES.includes(raw as Locale)) notFound();
   const locale = raw as Locale;
   const nav = await getNavData();
@@ -58,7 +60,7 @@ export default async function LocaleLayout({ children, params }: { children: Rea
   return (
     <>
       <head>
-        <script dangerouslySetInnerHTML={{ __html: themeScript }} suppressHydrationWarning />
+        <script nonce={nonce} dangerouslySetInnerHTML={{ __html: themeScript }} suppressHydrationWarning />
         {/* preload only the fonts this locale actually renders first */}
         {locale === "fa" ? (
           <>
